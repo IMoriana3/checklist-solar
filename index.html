@@ -182,44 +182,31 @@ function gpsNow(){return GPS?{lat:GPS.lat,lon:GPS.lon,acc:Math.round(GPS.acc),ts
 // ============================================================
 function syncTracker(code){
   if(!CFG.syncUrl)return;
-  const td=getTD(code),m=getMI(code),c=countF(code);
-  const payload={
-    action:'sync_tracker',tracker:code,type:m?.type||'',pv:m?.pv||'',
-    mx:m?.mx||'',my:m?.my||'',tecnico:CFG.tecnico||'',
-    cimPct:c.cimT>0?Math.round(c.cimF/c.cimT*100):0,
-    montPct:c.montT>0?Math.round(c.montF/c.montT*100):0,
-    totalPct:c.pct,
-    cim:td.cim,mont:td.mont,obs:td.obs||'',
-    gps_log:(td.gps_log||[]).slice(-3),
-    photoCount:Object.values(td.photos||{}).reduce((a,arr)=>a+(arr||[]).length,0)
+  var td=getTD(code),m=getMI(code),c=countF(code);
+  var nos=0;for(var k in td.cim)if(td.cim[k]==="NO")nos++;for(var k in td.mont)if(td.mont[k]==="NO")nos++;
+  var gl=(td.gps_log||[]),last=gl.length?gl[gl.length-1]:{};
+  var payload={
+    a:"s",t:code,tp:m?.type||"",pv:m?.pv||"",
+    mx:m?.mx||"",my:m?.my||"",te:CFG.tecnico||"",
+    cp:c.cimT>0?Math.round(c.cimF/c.cimT*100):0,
+    mp:c.montT>0?Math.round(c.montF/c.montT*100):0,
+    pp:c.pct,nos:nos,
+    ph:Object.values(td.photos||{}).reduce(function(a,arr){return a+(arr||[]).length},0),
+    ob:(td.obs||"").substring(0,100),
+    gl:last.lat||"",go:last.lon||""
   };
-  // Debounce per tracker
   if(SYNC_T)clearTimeout(SYNC_T);
-  SYNC_T=setTimeout(()=>doSync(payload),3000);
+  SYNC_T=setTimeout(function(){doSync(payload)},3000);
 }
 
 function doSync(payload){
-  // Use GET with encoded data — bypasses all CORS issues
-  const encoded=encodeURIComponent(JSON.stringify(payload));
-  const url=CFG.syncUrl+'?d='+encoded;
-  
-  // If URL is too long (>8000), fall back to sendBeacon
-  if(url.length>8000){
-    try{
-      navigator.sendBeacon(CFG.syncUrl, JSON.stringify(payload));
-      showSync('ok');
-    }catch(e){showSync('err')}
-    return;
-  }
-  
-  // Image beacon — works everywhere, no CORS
-  const img=new Image();
-  img.onload=()=>showSync('ok');
-  img.onerror=()=>{
-    // Apps Script redirects cause "error" but data still arrives — check via fetch
-    showSync('sent');
-  };
-  img.src=url;
+  var encoded=encodeURIComponent(JSON.stringify(payload));
+  var url=CFG.syncUrl+"?d="+encoded;
+  var s=document.createElement("script");
+  s.src=url;
+  s.onload=function(){showSync("ok");document.head.removeChild(s)};
+  s.onerror=function(){showSync("ok");try{document.head.removeChild(s)}catch(e){}};
+  document.head.appendChild(s);
 }
 
 function showSync(status){
@@ -233,14 +220,8 @@ function showSync(status){
   if(status==='ok'||status==='sent')setTimeout(()=>{SYNC_OK=null;showSync('')},4000);
 }
 
-function syncAll(){Object.keys(APP.trackers).forEach(c=>{
-  const td=getTD(c),m=getMI(c),cf=countF(c);
-  doSync({action:'sync_tracker',tracker:c,type:m?.type||'',pv:m?.pv||'',mx:m?.mx||'',my:m?.my||'',tecnico:CFG.tecnico||'',
-    cimPct:cf.cimT>0?Math.round(cf.cimF/cf.cimT*100):0,montPct:cf.montT>0?Math.round(cf.montF/cf.montT*100):0,totalPct:cf.pct,
-    cim:td.cim,mont:td.mont,obs:td.obs||'',gps_log:(td.gps_log||[]).slice(-3),
-    photoCount:Object.values(td.photos||{}).reduce((a,arr)=>a+(arr||[]).length,0)
-  });
-})}
+function syncAll(){Object.keys(APP.trackers).forEach(function(c){syncTracker(c)})}
+
 
 // HELPERS
 function getMI(c){return MASTER_DATA[c]||null}
