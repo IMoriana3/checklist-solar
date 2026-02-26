@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#0c1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Checklist Solar - ATALAYA</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+<script src="master.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--bg:#0c1117;--sf:#161d27;--sf2:#1e2736;--bd:#2a3545;--ac:#f59e0b;--ok:#22c55e;--no:#ef4444;--na:#6b7280;--tx:#e8eaed;--td:#7a8a9a}
+body{background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+input,textarea,select{user-select:text;-webkit-user-select:text;font-size:16px!important}
+.hide{display:none!important}
+button{cursor:pointer;border:none;outline:none;font-family:inherit}
+input,textarea,select{border:none;outline:none;font-family:inherit}
+
+/* Header */
+.hdr{position:sticky;top:0;z-index:50;padding:12px 16px;display:flex;align-items:center;gap:12px;background:var(--bg);border-bottom:1px solid var(--bd)}
+.hdr h1{font-size:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .sub{font-size:11px;color:var(--td)}
+.hdr-r{margin-left:auto;display:flex;gap:8px;align-items:center;flex-shrink:0}
+.btn-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--sf2)}
+.btn-back{background:var(--sf2);color:var(--tx);font-size:20px}
+.btn-accent{background:var(--ac);color:var(--bg)}
+.btn-ok{background:var(--ok);color:#fff}
+.badge{min-width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+
+/* Forms */
+.card{background:var(--sf);border-radius:12px;padding:12px;margin-bottom:8px}
+.card-row{display:flex;align-items:center;gap:12px}
+.card-label{flex:1;font-size:14px;line-height:1.3}
+.section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--ac);padding:4px 4px 8px}
+.input-num{width:100%;height:48px;border-radius:10px;padding:0 16px;font-size:16px;font-family:monospace;background:var(--sf2);color:var(--tx);border:2px solid var(--bd)}
+.input-num:focus,.input-num.has-val{border-color:var(--ac)}
+.input-num.out-range{border-color:var(--no)!important;background:#1a0a0a;color:var(--no)}
+select.sel{height:48px;border-radius:10px;padding:0 12px;font-size:15px;background:var(--sf2);color:var(--tx);border:2px solid var(--bd);appearance:none;-webkit-appearance:none}
+
+/* OK/NO/NA buttons */
+.okno{display:flex;gap:4px}
+.okno.compact{width:140px;flex-shrink:0}
+.okno button{flex:1;height:44px;border-radius:10px;font-weight:700;font-size:13px;border:2px solid var(--bd);background:var(--sf);color:var(--td);transition:all .15s}
+.okno.compact button{height:36px;font-size:11px}
+.okno button.sel-ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.okno button.sel-no{background:var(--no);border-color:var(--no);color:#fff}
+.okno button.sel-na{background:var(--na);border-color:var(--na);color:#fff}
+
+/* Tabs */
+.tabs{display:flex;overflow-x:auto;gap:4px;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex-shrink:0;padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;white-space:nowrap;background:var(--sf2);color:var(--td)}
+.tab.active{background:var(--ac);color:var(--bg)}
+.tab .cnt{margin-left:6px;opacity:.7}
+
+/* Pilar selector */
+.pilars{display:flex;overflow-x:auto;gap:6px;padding:12px 0;-webkit-overflow-scrolling:touch}
+.pilars::-webkit-scrollbar{display:none}
+.pilar-btn{flex-shrink:0;min-width:56px;padding:8px 10px;border-radius:10px;font-size:11px;font-weight:700;text-align:center;border:2px solid var(--bd);background:transparent;color:var(--td)}
+.pilar-btn.active{background:var(--sf2);border-color:var(--ac);color:var(--ac)}
+.pilar-btn.complete{border-color:var(--ok);color:var(--ok)}
+.pilar-btn .pilar-sub{font-size:10px;opacity:.6;margin-top:2px}
+
+/* Progress */
+.prog{width:100%;height:8px;border-radius:4px;background:var(--bd);overflow:hidden}
+.prog-bar{height:100%;border-radius:4px;transition:width .5s;background:var(--ac)}
+.prog-bar.done{background:var(--ok)}
+
+/* Photo */
+.photo-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+.photo-thumb{position:relative;flex-shrink:0;width:72px;height:72px;border-radius:12px;overflow:hidden;border:2px solid var(--bd)}
+.photo-thumb img{width:100%;height:100%;object-fit:cover}
+.photo-del{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:var(--no);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.photo-add{flex-shrink:0;width:72px;height:72px;border-radius:12px;border:2px dashed var(--bd);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--td);font-size:10px}
+.photo-add span:first-child{font-size:20px}
+
+/* Grid */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat-card{padding:16px;border-radius:12px;background:var(--sf)}
+.stat-label{font-size:11px;color:var(--td)}
+.stat-val{font-size:24px;font-weight:700;margin-top:2px}
+.stat-sub{font-size:11px;color:var(--td)}
+
+/* Tracker grid */
+.tracker-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.tracker-cell{aspect-ratio:1;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:1px solid var(--bd);background:var(--sf2);color:var(--td)}
+.tracker-cell.prog-some{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:var(--ac)}
+.tracker-cell.prog-done{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.3);color:var(--ok)}
+
+/* Misc */
+.gps-info{display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:10px;background:var(--sf2);font-size:12px;color:var(--td);margin-bottom:8px}
+.gps-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.export-panel{margin:8px 16px;padding:16px;border-radius:12px;background:var(--sf);border:1px solid var(--ac)}
+.export-btn{width:100%;height:48px;border-radius:12px;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px}
+.content{padding:0 16px 32px}
+.textarea{width:100%;border-radius:12px;padding:12px;font-size:14px;background:var(--sf2);color:var(--tx);border:2px solid var(--bd);resize:none}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<input type="file" id="camera-input" accept="image/*" capture="environment" multiple style="display:none">
+
+<script>
+// ============================================================
+// APP STATE
+// ============================================================
+const STORAGE_KEY = 'checklist-solar-v2';
+const CONFIG_KEY = 'checklist-solar-config';
+let APP = loadState() || {trackers:{}, gps:{}};
+let CFG = loadConfig() || {syncUrl:'', tecnico:''};
+let VIEW = {screen: CFG.syncUrl ? 'home' : 'setup', tracker:null, tab:'cim', pilarIdx:0, fila:'motor', showExport:false};
+let GPS_POS = null;
+let GPS_WATCH = null;
+let SYNC_STATUS = 'idle'; // idle, syncing, ok, error, offline
+let SYNC_QUEUE = [];
+let SYNC_TIMER = null;
+
+function loadState(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))}catch{return null}}
+function saveState(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(APP))}catch(e){console.error(e)}}
+function loadConfig(){try{return JSON.parse(localStorage.getItem(CONFIG_KEY))}catch{return null}}
+function saveConfig(){try{localStorage.setItem(CONFIG_KEY,JSON.stringify(CFG))}catch(e){console.error(e)}}
+
+// ============================================================
+// PILLAR DEFINITIONS BY TRACKER TYPE
+// ============================================================
+const PILLAR_CONFIG = {
+  monofila_corto: {
+    motor: ['2N-MP','1N-MP','MP','1S-MP','2S-MP'],
+    conducida: null
+  },
+  monofila_largo: {
+    motor: ['4N-MP','3N-MP','2N-MP','1N-MP','MP','1S-MP','2S-MP','3S-MP','4S-MP'],
+    conducida: null
+  },
+  bifila_corto: {
+    motor: ['2N-MP','1N-MP','MP','1S-MP','2S-MP'],
+    conducida: ['2N','1N','MP-FC','1S','2S']
+  },
+  bifila_largo: {
+    motor: ['4N-MP','3N-MP','2N-MP','1N-MP','MP','1S-MP','2S-MP','3S-MP','4S-MP'],
+    conducida: ['4N','3N','2N','1N','MP-FC','1S','2S','3S','4S']
+  }
+};
+
+const MEDICIONES = [
+  {id:'altura',label:'Altura pilar (Distancia libre)',type:'number',unit:'mm'},
+  {id:'vert_ns',label:'Verticalidad N-S',type:'number',unit:'º',tol:[-2,2]},
+  {id:'vert_eo',label:'Verticalidad E-O',type:'number',unit:'º',tol:[-2,2]},
+  {id:'torsion',label:'Torsión en cabeza de pilares',type:'okno'},
+  {id:'desv_eo',label:'Desviación Este-Oeste cabezas',type:'okno'},
+  {id:'desv_altura',label:'Desviación de Altura (Dv)',type:'number',unit:'mm'},
+  {id:'dist_ns',label:'Distancia Norte-Sur al pilar central',type:'number',unit:'mm'}
+];
+
+const COMPROBACIONES = [
+  {id:'galvanizado',label:'Reparación galvanizado según procedimiento'},
+  {id:'golpes',label:'Deformación por golpes'},
+  {id:'entalladura',label:'Deformación por entalladura'},
+  {id:'pliegue',label:'Deformación por pliegue'},
+  {id:'cabezas',label:'Deformaciones en cabezas del pilar'},
+  {id:'corte',label:'Corte y mecanizado'},
+  {id:'mecanizados',label:'Mecanizados fuera de tolerancias'},
+  {id:'orientacion',label:'Orientación correcta pilares (Norte-Sur)'},
+  {id:'perfil',label:'Perfil de sección correcta'},
+  {id:'relleno',label:'Relleno de perforaciones'},
+  {id:'oxidacion',label:'Presencia de oxidación'},
+  {id:'socavones',label:'Socavones en pie de pilar'},
+  {id:'cimentacion',label:'Validación de cimentación'},
+  {id:'zanjas',label:'Zanjas y excavaciones < 1500 mm'},
+  {id:'centrado',label:'Pilar centrado Micropilote'},
+  {id:'diametro',label:'Diámetro correcto Micropilote'}
+];
+
+const MONTAJE_SECTIONS = [
+  {id:'ms',title:'Soporte central (MS)',items:[
+    {id:'ms_par',label:'Par apriete tornillería (230 N.m)'},
+    {id:'ms_sup',label:'Superficie soportes paralela pendiente N-S'},
+    {id:'ms_ali',label:'Ambos soportes alineados mismo plano'},
+    {id:'ms_gir',label:'Par apriete tornillería giro'}]},
+  {id:'bs',title:'Cabeza de giro (BS)',items:[
+    {id:'bs_par',label:'Par apriete tornillería (280 N.m)'},
+    {id:'bs_peg',label:'Pegatina actuador = referencia B1'},
+    {id:'bs_mot',label:'Motor DC orientado al Oeste'}]},
+  {id:'b1',title:'Viga Central (B1)',items:[
+    {id:'b1_par',label:'Par apriete tornillería (280 N.m)'},
+    {id:'b1_sol',label:'Soldadura vigas orientada al suelo'}]},
+  {id:'sf',title:'Vigas Secundarias (SF)',items:[
+    {id:'sf_par',label:'Par apriete tornillería (140 N.m)'},
+    {id:'sf_rem',label:'Correcto remachado entre vigas'},
+    {id:'sf_pin',label:'Correcto pintado de remaches'},
+    {id:'sf_vis',label:'Visores en caras verticales'}]},
+  {id:'ds',title:'Dampers (DS)',items:[
+    {id:'ds_par',label:'Par apriete tornillería (20 N.m)'},
+    {id:'ds_est',label:'Dampers al ESTE en mitad ESTE'},
+    {id:'ds_oes',label:'Dampers al OESTE en mitad OESTE'},
+    {id:'ds_pc',label:'Ubicación damper pilar C'},
+    {id:'ds_pw',label:'Ubicación damper pilar W'},
+    {id:'ds_cil',label:'Cilindro damper hacia abajo'}]},
+  {id:'vp',title:'Vigas Principales',items:[
+    {id:'vp_140',label:'Par apriete (140 N.m)'},
+    {id:'vp_410',label:'Par apriete (410 N.m)'},
+    {id:'vp_sim',label:'Simetría E-O (±15mm)'},
+    {id:'vp_per',label:'Perpendicularidad'},
+    {id:'vp_ali',label:'Alineación'}]},
+  {id:'tr',title:'Transmisión (TR)',items:[
+    {id:'tr_par',label:'Par apriete tornillería (140 N.m)'},
+    {id:'tr_ang',label:'Ángulo slews motor/conducido (±0.20º)'},
+    {id:'tr_car',label:'Montaje tornillo cardán'},
+    {id:'tr_esp',label:'Espaciado cardán-viga (80-120mm)'},
+    {id:'tr_cpa',label:'Par tornillo cardán (30 N.m)'},
+    {id:'tr_u9',label:'Marcado Unión 9 (10 N.m)'},
+    {id:'tr_u4',label:'Par Unión 4 (35 N.m)'},
+    {id:'tr_u13',label:'Par Unión 13 (140 N.m)'},
+    {id:'tr_u8',label:'Marcado Unión 8 (20 N.m)'},
+    {id:'tr_u32',label:'Par Unión 32 (140 N.m)'}]},
+  {id:'pat',title:'Puesta a Tierra',items:[
+    {id:'pat_ok',label:'Correcta instalación PAT'},
+    {id:'pat_int',label:'PAT sin interferencias'}]},
+  {id:'tp',title:'Tapón Plástico',items:[
+    {id:'tp_ok',label:'Tapones con tornillos autorroscantes'}]},
+  {id:'iv',title:'Inspecciones Visuales',items:[
+    {id:'iv_gol',label:'Sin golpes/deformaciones'},
+    {id:'iv_mod',label:'Sin modificaciones estructurales'},
+    {id:'iv_gal',label:'Galvanizado reparado'},
+    {id:'iv_tor',label:'Tornillería en buenas condiciones'}]}
+];
+
+// ============================================================
+// GPS
+// ============================================================
+function startGPS(){
+  if(!navigator.geolocation) return;
+  GPS_WATCH = navigator.geolocation.watchPosition(
+    p => {GPS_POS = {lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,ts:Date.now()}; render();},
+    ()=>{}, {enableHighAccuracy:true, maximumAge:10000}
+  );
+}
+
+function getGPSstamp(){
+  return GPS_POS ? {lat:GPS_POS.lat,lon:GPS_POS.lon,acc:Math.round(GPS_POS.acc),ts:new Date().toISOString()} : {ts:new Date().toISOString()};
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function getMasterInfo(code){return MASTER_DATA[code] || null;}
+
+function getTrackerCode(pv, num){
+  const pvStr = String(pv).padStart(2,'0');
+  const numStr = String(num).padStart(3,'0');
+  return `TR${pvStr}.${numStr}`;
+}
+
+function getTrackerData(code){
+  if(!APP.trackers[code]) APP.trackers[code] = {cim:{},mont:{},photos:{},obs:'',gps_log:[],created:new Date().toISOString()};
+  return APP.trackers[code];
+}
+
+function countFields(code){
+  const master = getMasterInfo(code);
+  if(!master) return {cimF:0,cimT:0,montF:0,montT:0,pct:0};
+  const cfg = PILLAR_CONFIG[master.type];
+  const filas = cfg.conducida ? ['motor','conducida'] : ['motor'];
+  const fieldsPerPilar = MEDICIONES.length + COMPROBACIONES.length;
+  let cimT = 0, cimF = 0;
+  const td = getTrackerData(code);
+  filas.forEach(f => {
+    const pillars = cfg[f];
+    cimT += pillars.length * fieldsPerPilar;
+    pillars.forEach((p,i) => {
+      const prefix = f === 'motor' ? 'fm' : 'fc';
+      [...MEDICIONES,...COMPROBACIONES].forEach(field => {
+        if(td.cim[`${prefix}_${i}_${field.id}`] != null) cimF++;
+      });
+    });
+  });
+  const montT = MONTAJE_SECTIONS.reduce((a,s) => a + s.items.length, 0);
+  const montF = Object.keys(td.mont).filter(k => td.mont[k] != null).length;
+  const total = cimT + montT;
+  const filled = cimF + montF;
+  return {cimF,cimT,montF,montT,pct:total>0?Math.round(filled/total*100):0};
+}
+
+// ============================================================
+// PHOTO HANDLING
+// ============================================================
+let photoCallback = null;
+document.getElementById('camera-input').addEventListener('change', async function(e){
+  const files = Array.from(e.target.files||[]);
+  const photos = await Promise.all(files.map(f => compressPhoto(f)));
+  if(photoCallback) photoCallback(photos);
+  this.value = '';
+});
+
+function compressPhoto(file){
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 1200;
+        let w=img.width, h=img.height;
+        if(w>MAX||h>MAX){if(w>h){h=(h/w)*MAX;w=MAX}else{w=(w/h)*MAX;h=MAX}}
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve({data:canvas.toDataURL('image/jpeg',0.7), ts:new Date().toISOString(), gps:getGPSstamp()});
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportTrackerXLSX(code){
+  const td = getTrackerData(code);
+  const master = getMasterInfo(code);
+  const cfg = PILLAR_CONFIG[master.type];
+  const wb = XLSX.utils.book_new();
+
+  // CIMENTACIONES
+  const rows = [];
+  rows.push(['CHECK LIST CIMENTACIONES - ' + code]);
+  rows.push(['Tipo:', master.type, '', 'Coord X:', master.mx, 'Coord Y:', master.my]);
+  rows.push(['Fecha:', new Date().toLocaleDateString('es-ES')]);
+  rows.push([]);
+
+  const filas = cfg.conducida ? ['motor','conducida'] : ['motor'];
+  filas.forEach(f => {
+    const pillars = cfg[f];
+    const prefix = f==='motor'?'fm':'fc';
+    rows.push([f==='motor'?'PILARES FILA MOTOR':'PILARES FILA CONDUCIDA']);
+    rows.push(['MEDICIONES','Unidad',...pillars]);
+    MEDICIONES.forEach(m => {
+      const r = [m.label, m.unit||'Si/No/NA'];
+      pillars.forEach((_,i) => r.push(td.cim[`${prefix}_${i}_${m.id}`] ?? ''));
+      rows.push(r);
+    });
+    rows.push([]);
+    rows.push(['COMPROBACIÓN','Tipo',...pillars]);
+    COMPROBACIONES.forEach(c => {
+      const r = [c.label, 'Si/No/NA'];
+      pillars.forEach((_,i) => r.push(td.cim[`${prefix}_${i}_${c.id}`] ?? ''));
+      rows.push(r);
+    });
+    rows.push([]);
+  });
+
+  if(td.obs) rows.push(['OBSERVACIONES:', td.obs]);
+  if(td.gps_log?.length){
+    rows.push([]); rows.push(['REGISTRO GPS']);
+    rows.push(['Timestamp','Latitud','Longitud','Precisión (m)']);
+    td.gps_log.forEach(g => rows.push([g.ts, g.lat, g.lon, g.acc]));
+  }
+
+  const s1 = XLSX.utils.aoa_to_sheet(rows);
+  s1['!cols'] = [{wch:45},{wch:12},...(cfg.motor.map(()=>({wch:10})))];
+  XLSX.utils.book_append_sheet(wb, s1, 'Cimentaciones');
+
+  // MONTAJE
+  const mrows = [['CHECKLIST MONTAJE - '+code],['Fecha:',new Date().toLocaleDateString('es-ES')],[]];
+  MONTAJE_SECTIONS.forEach(sec => {
+    mrows.push([sec.title.toUpperCase()]);
+    mrows.push(['Punto de inspección','Resultado']);
+    sec.items.forEach(it => mrows.push([it.label, td.mont[it.id]??'']));
+    mrows.push([]);
+  });
+  const s2 = XLSX.utils.aoa_to_sheet(mrows);
+  s2['!cols'] = [{wch:55},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, s2, 'Montaje');
+
+  const wbout = XLSX.write(wb, {bookType:'xlsx',type:'array'});
+  downloadBlob(new Blob([wbout],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), `Checklist_${code}.xlsx`);
+}
+
+function exportDashboardXLSX(){
+  const wb = XLSX.utils.book_new();
+  const rows = [['RESUMEN AVANCE - ISFV ATALAYA'],['Fecha:',new Date().toLocaleDateString('es-ES')],[],
+    ['Tracker','Tipo','PV','%Cim','%Mont','%Total','NOs','Fotos','GPS logs','Estado']];
+  Object.keys(APP.trackers).sort().forEach(code => {
+    const c = countFields(code);
+    const td = APP.trackers[code];
+    const m = getMasterInfo(code);
+    let nos=0;
+    Object.values(td.cim||{}).forEach(v=>{if(v==='NO')nos++});
+    Object.values(td.mont||{}).forEach(v=>{if(v==='NO')nos++});
+    const photos = Object.values(td.photos||{}).reduce((a,arr)=>a+arr.length,0);
+    rows.push([code,m?.type||'',m?.pv||'',c.cimT>0?Math.round(c.cimF/c.cimT*100)+'%':'',c.montT>0?Math.round(c.montF/c.montT*100)+'%':'',c.pct+'%',nos,photos,td.gps_log?.length||0,c.pct===100?'COMPLETADO':c.pct>0?'EN PROGRESO':'PENDIENTE']);
+  });
+  const s = XLSX.utils.aoa_to_sheet(rows);
+  s['!cols']=[{wch:12},{wch:16},{wch:6},{wch:8},{wch:8},{wch:8},{wch:6},{wch:6},{wch:10},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,s,'Resumen');
+  const wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  downloadBlob(new Blob([wbout],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),`Dashboard_ATALAYA_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function downloadBlob(blob,name){
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href);
+}
+
+// ============================================================
+// SYNC ENGINE — Google Sheets via Apps Script
+// ============================================================
+
+function syncTracker(code) {
+  if (!CFG.syncUrl) return;
+  const td = getTrackerData(code);
+  const master = getMasterInfo(code);
+  const c = countFields(code);
+  
+  // Build sync payload (without photos - too large)
+  const payload = {
+    action: 'sync_tracker',
+    tracker: code,
+    type: master?.type || '',
+    pv: master?.pv || '',
+    mx: master?.mx || '',
+    my: master?.my || '',
+    cimPct: c.cimT > 0 ? Math.round(c.cimF / c.cimT * 100) : 0,
+    montPct: c.montT > 0 ? Math.round(c.montF / c.montT * 100) : 0,
+    totalPct: c.pct,
+    tecnico: CFG.tecnico || '',
+    data: {
+      cim: td.cim,
+      mont: td.mont,
+      obs: td.obs,
+      gps_log: (td.gps_log || []).slice(-5), // Last 5 GPS entries
+      photos: Object.fromEntries(
+        Object.entries(td.photos || {}).map(([k, arr]) => [k, (arr||[]).map(p => ({ts:p.ts, gps:p.gps}))])
+      ) // Only photo metadata, not base64
+    }
+  };
+  
+  queueSync(payload);
+}
+
+function queueSync(payload) {
+  // Replace existing entry for same tracker
+  SYNC_QUEUE = SYNC_QUEUE.filter(p => !(p.tracker === payload.tracker && p.action === payload.action));
+  SYNC_QUEUE.push(payload);
+  
+  // Debounce: wait 3 seconds after last change before syncing
+  if (SYNC_TIMER) clearTimeout(SYNC_TIMER);
+  SYNC_TIMER = setTimeout(flushSync, 3000);
+}
+
+async function flushSync() {
+  if (SYNC_QUEUE.length === 0) return;
+  if (!navigator.onLine) {
+    SYNC_STATUS = 'offline';
+    updateSyncIndicator();
+    return;
+  }
+  
+  SYNC_STATUS = 'syncing';
+  updateSyncIndicator();
+  
+  // Process queue one by one
+  const toSend = [...SYNC_QUEUE];
+  SYNC_QUEUE = [];
+  
+  let allOk = true;
+  for (const payload of toSend) {
+    try {
+      await fetch(CFG.syncUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain'},
+        body: JSON.stringify(payload)
+      });
+      // no-cors means we can't read response, but data was sent
+    } catch (err) {
+      console.error('Sync error:', err);
+      SYNC_QUEUE.push(payload); // Re-queue failed items
+      allOk = false;
+    }
+  }
+  
+  SYNC_STATUS = allOk ? 'ok' : 'error';
+  updateSyncIndicator();
+  
+  // Reset status after 5 seconds
+  setTimeout(() => {
+    if (SYNC_STATUS === 'ok') { SYNC_STATUS = 'idle'; updateSyncIndicator(); }
+  }, 5000);
+}
+
+function updateSyncIndicator() {
+  const el = document.getElementById('sync-indicator');
+  if (!el) return;
+  const icons = {idle: '☁️', syncing: '🔄', ok: '✅', error: '⚠️', offline: '📴'};
+  const labels = {idle: '', syncing: 'Sync...', ok: 'Sincronizado', error: 'Error sync', offline: 'Sin conexión'};
+  el.innerHTML = `${icons[SYNC_STATUS]}<span style="font-size:10px;margin-left:2px">${labels[SYNC_STATUS]}</span>`;
+  el.style.color = SYNC_STATUS === 'error' ? 'var(--no)' : SYNC_STATUS === 'ok' ? 'var(--ok)' : 'var(--td)';
+}
+
+// Retry sync when coming back online
+window.addEventListener('online', () => {
+  if (SYNC_QUEUE.length > 0) flushSync();
+  // Also re-sync current tracker if viewing one
+  if (VIEW.tracker) syncTracker(VIEW.tracker);
+});
+
+window.addEventListener('offline', () => {
+  SYNC_STATUS = 'offline';
+  updateSyncIndicator();
+});
+
+// ============================================================
+// RENDER ENGINE
+// ============================================================
+function render(){
+  const app = document.getElementById('app');
+  switch(VIEW.screen){
+    case 'setup': app.innerHTML = renderSetup(); break;
+    case 'home': app.innerHTML = renderHome(); break;
+    case 'select': app.innerHTML = renderSelect(); break;
+    case 'tracker': app.innerHTML = renderTracker(); break;
+    case 'dashboard': app.innerHTML = renderDashboard(); break;
+    case 'config': app.innerHTML = renderConfig(); break;
+  }
+  setTimeout(updateSyncIndicator, 50);
+}
+
+function h(tag, cls, inner, attrs=''){return `<${tag} class="${cls}" ${attrs}>${inner}</${tag}>`;}
+
+// ============================================================
+// SETUP SCREEN (first time only)
+// ============================================================
+function renderSetup(){
+  return `
+  <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+    <div style="font-size:48px;margin-bottom:16px">☀️</div>
+    <h1 style="font-size:22px;margin-bottom:4px">Checklist Solar</h1>
+    <p style="color:var(--td);font-size:13px;margin-bottom:32px">ISFV ATALAYA — X-ELIO</p>
+    
+    <div style="width:100%;max-width:400px">
+      <div class="card" style="padding:20px">
+        <label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Tu nombre (técnico/inspector)</label>
+        <input id="cfg-nombre" type="text" class="input-num" placeholder="Ej: Juan García" 
+          value="${CFG.tecnico||''}" style="margin-bottom:16px">
+        
+        <label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">URL de sincronización (Google Apps Script)</label>
+        <input id="cfg-url" type="url" class="input-num" placeholder="https://script.google.com/macros/s/..." 
+          value="${CFG.syncUrl||''}" style="margin-bottom:8px">
+        <p style="font-size:11px;color:var(--td);margin-bottom:20px">
+          Te la proporciona el responsable del proyecto. Si no la tienes, puedes dejarla vacía y la app funcionará sin sincronización.
+        </p>
+        
+        <button onclick="guardarSetup()" style="width:100%;height:52px;border-radius:14px;background:var(--ac);color:var(--bg);font-size:16px;font-weight:700">
+          Comenzar
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function guardarSetup(){
+  CFG.tecnico = document.getElementById('cfg-nombre').value.trim();
+  CFG.syncUrl = document.getElementById('cfg-url').value.trim();
+  saveConfig();
+  VIEW.screen = 'home';
+  render();
+}
+
+// ============================================================
+// CONFIG SCREEN
+// ============================================================
+function renderConfig(){
+  const dataSize = (JSON.stringify(APP).length / 1024).toFixed(1);
+  const trackerCount = Object.keys(APP.trackers).length;
+  return `
+  <div class="hdr">
+    <button class="btn-icon btn-back" onclick="VIEW.screen='home';render()">←</button>
+    <div><h1>Configuración</h1></div>
+  </div>
+  <div class="content" style="padding-top:16px">
+    <div class="card" style="padding:16px">
+      <label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Nombre del técnico</label>
+      <input id="cfg-nombre2" type="text" class="input-num" value="${CFG.tecnico||''}" style="margin-bottom:16px"
+        onchange="CFG.tecnico=this.value.trim();saveConfig()">
+      
+      <label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">URL de sincronización</label>
+      <input id="cfg-url2" type="url" class="input-num" value="${CFG.syncUrl||''}" style="margin-bottom:8px"
+        onchange="CFG.syncUrl=this.value.trim();saveConfig()">
+      <p style="font-size:11px;color:var(--td);margin-bottom:16px">La URL del Google Apps Script desplegado</p>
+      
+      <button onclick="testSync()" style="width:100%;height:44px;border-radius:10px;background:var(--sf2);color:var(--tx);font-size:14px;border:2px solid var(--bd);margin-bottom:16px">
+        🔄 Probar conexión
+      </button>
+      <div id="test-result" style="font-size:12px;margin-bottom:16px"></div>
+    </div>
+    
+    <div class="card" style="padding:16px;margin-top:8px">
+      <div style="font-size:14px;font-weight:700;margin-bottom:8px">Datos locales</div>
+      <div style="font-size:13px;color:var(--td)">Trackers: ${trackerCount} · Tamaño: ${dataSize} KB</div>
+      
+      <button onclick="syncAllTrackers()" style="width:100%;height:44px;border-radius:10px;background:#217346;color:#fff;font-size:14px;font-weight:700;margin-top:12px">
+        ☁️ Sincronizar TODO ahora
+      </button>
+      
+      <button onclick="if(confirm('⚠️ ¿Borrar TODOS los datos de inspecciones del dispositivo? Los datos sincronizados en Google Sheets se mantienen.')){APP={trackers:{},gps:{}};saveState();render()}" 
+        style="width:100%;height:44px;border-radius:10px;background:transparent;color:var(--no);font-size:13px;border:1px solid var(--no);margin-top:8px">
+        🗑️ Borrar datos locales
+      </button>
+    </div>
+  </div>`;
+}
+
+async function testSync(){
+  const res = document.getElementById('test-result');
+  if(!CFG.syncUrl){res.innerHTML='<span style="color:var(--no)">No hay URL configurada</span>';return;}
+  res.innerHTML='<span style="color:var(--ac)">Probando conexión...</span>';
+  try{
+    await fetch(CFG.syncUrl, {method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'test',tecnico:CFG.tecnico,ts:new Date().toISOString()})});
+    res.innerHTML='<span style="color:var(--ok)">✅ Solicitud enviada — comprueba la hoja de Google Sheets (pestaña "Log Sync")</span>';
+  }catch(e){
+    res.innerHTML=`<span style="color:var(--no)">❌ Error: ${e.message}</span>`;
+  }
+}
+
+function syncAllTrackers(){
+  Object.keys(APP.trackers).forEach(code => syncTracker(code));
+  alert(`Sincronizando ${Object.keys(APP.trackers).length} trackers...`);
+}
+
+// ============================================================
+// HOME SCREEN
+// ============================================================
+function renderHome(){
+  const trackerCodes = Object.keys(APP.trackers).sort();
+  const total = trackerCodes.length;
+  const completed = trackerCodes.filter(c => countFields(c).pct === 100).length;
+
+  let html = `
+  <div class="hdr">
+    <div><h1>☀️ ISFV ATALAYA</h1><div class="sub">${CFG.tecnico||'Sin nombre'} · ${total} trackers</div></div>
+    <div class="hdr-r">
+      <div id="sync-indicator" style="font-size:14px;display:flex;align-items:center"></div>
+      ${total>0?`<button class="btn-icon" onclick="exportDashboardXLSX()" style="background:#217346;color:#fff">📊</button>`:''}
+      <button class="btn-icon btn-accent" onclick="VIEW.screen='dashboard';render()">📈</button>
+      <button class="btn-icon" onclick="VIEW.screen='config';render()" style="font-size:16px">⚙️</button>
+    </div>
+  </div>
+  <div class="content" style="padding-top:16px">
+    <button onclick="VIEW.screen='select';render()" style="width:100%;height:56px;border-radius:14px;background:var(--ac);color:var(--bg);font-size:16px;font-weight:700;margin-bottom:16px">
+      + Nueva Inspección
+    </button>`;
+
+  if(GPS_POS){
+    html += `<div class="gps-info"><div class="gps-dot"></div>GPS activo · Precisión: ${Math.round(GPS_POS.acc)}m</div>`;
+  }
+
+  // Recent trackers
+  if(total > 0){
+    html += `<div class="section-title" style="margin-top:8px">Inspecciones recientes</div>`;
+    trackerCodes.slice(-20).reverse().forEach(code => {
+      const c = countFields(code);
+      const m = getMasterInfo(code);
+      const td = APP.trackers[code];
+      const photos = Object.values(td.photos||{}).reduce((a,arr)=>a+arr.length,0);
+      html += `
+      <button onclick="openTracker('${code}')" style="width:100%;text-align:left;padding:14px;border-radius:12px;background:var(--sf);margin-bottom:8px;border:1px solid ${c.pct===100?'var(--ok)':'var(--bd)'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div>
+            <span style="font-weight:700;font-size:15px">${code}</span>
+            <span style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:6px;background:var(--sf2);color:var(--td)">${m?.type||''}</span>
+          </div>
+          <span style="font-size:14px;font-weight:700;color:${c.pct===100?'var(--ok)':'var(--ac)'}">${c.pct}%</span>
+        </div>
+        <div style="display:flex;gap:16px;font-size:11px;color:var(--td)">
+          <span>CIM: ${c.cimF}/${c.cimT}</span><span>MONT: ${c.montF}/${c.montT}</span>
+          ${photos>0?`<span>📷${photos}</span>`:''}
+          ${td.gps_log?.length?`<span>📍${td.gps_log.length}</span>`:''}
+        </div>
+        <div class="prog" style="margin-top:8px"><div class="prog-bar ${c.pct===100?'done':''}" style="width:${c.pct}%"></div></div>
+      </button>`;
+    });
+  }
+  html += '</div>';
+  return html;
+}
+
+function openTracker(code){
+  VIEW.screen='tracker'; VIEW.tracker=code; VIEW.tab='cim'; VIEW.fila='motor'; VIEW.pilarIdx=0; VIEW.showExport=false;
+  // Log GPS
+  const td = getTrackerData(code);
+  if(!td.gps_log) td.gps_log=[];
+  td.gps_log.push({...getGPSstamp(), action:'open'});
+  saveState();
+  render();
+}
+
+// ============================================================
+// TRACKER SELECTOR
+// ============================================================
+function renderSelect(){
+  // Get unique PVs from master
+  const pvs = [...new Set(Object.values(MASTER_DATA).map(d=>d.pv))].sort((a,b)=>a-b);
+
+  html = `
+  <div class="hdr">
+    <button class="btn-icon btn-back" onclick="VIEW.screen='home';render()">←</button>
+    <div><h1>Seleccionar Tracker</h1><div class="sub">Elige PV y número de tracker</div></div>
+  </div>
+  <div class="content" style="padding-top:16px">
+    <div class="card">
+      <label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Polígono / PV</label>
+      <select class="sel" id="sel-pv" style="width:100%;margin-bottom:12px" onchange="updateTrackerList()">
+        <option value="">— Selecciona PV —</option>
+        ${pvs.map(p=>`<option value="${p}">PV${String(p).padStart(2,'0')}</option>`).join('')}
+      </select>
+      <label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Nº Tracker</label>
+      <select class="sel" id="sel-tracker" style="width:100%;margin-bottom:12px">
+        <option value="">— Selecciona primero un PV —</option>
+      </select>
+      <div id="tracker-preview" style="margin-top:8px"></div>
+      <button id="btn-start" class="hide" onclick="startInspection()" style="width:100%;height:48px;border-radius:12px;background:var(--ac);color:var(--bg);font-size:15px;font-weight:700;margin-top:12px">
+        Comenzar Inspección
+      </button>
+    </div>
+  </div>`;
+  return html;
+}
+
+function updateTrackerList(){
+  const pv = parseInt(document.getElementById('sel-pv').value);
+  const sel = document.getElementById('sel-tracker');
+  if(!pv){sel.innerHTML='<option value="">— Selecciona primero un PV —</option>';return;}
+  const trackers = Object.entries(MASTER_DATA).filter(([_,d])=>d.pv===pv).sort((a,b)=>a[1].num-b[1].num);
+  sel.innerHTML = '<option value="">— Selecciona tracker —</option>' +
+    trackers.map(([code,d])=>{
+      const inspected = APP.trackers[code] ? ` ✓ ${countFields(code).pct}%` : '';
+      return `<option value="${code}">${d.num} — ${d.type} (${d.n} soportes)${inspected}</option>`;
+    }).join('');
+  sel.onchange = showTrackerPreview;
+}
+
+function showTrackerPreview(){
+  const code = document.getElementById('sel-tracker').value;
+  const div = document.getElementById('tracker-preview');
+  const btn = document.getElementById('btn-start');
+  if(!code){div.innerHTML='';btn.classList.add('hide');return;}
+  const m = getMasterInfo(code);
+  const cfg = PILLAR_CONFIG[m.type];
+  btn.classList.remove('hide');
+  div.innerHTML = `
+    <div class="card" style="background:var(--sf2)">
+      <div style="font-weight:700;margin-bottom:4px">${code}</div>
+      <div style="font-size:12px;color:var(--td);margin-bottom:4px">Tipo: ${m.type} · ${m.n} soportes</div>
+      <div style="font-size:12px;color:var(--td)">Coord proyecto: ${m.mx?.toFixed(3) || '—'}, ${m.my?.toFixed(3) || '—'}</div>
+      <div style="font-size:12px;color:var(--td);margin-top:4px">Fila Motor: ${cfg.motor.join(', ')}</div>
+      ${cfg.conducida?`<div style="font-size:12px;color:var(--td)">Fila Conducida: ${cfg.conducida.join(', ')}</div>`:'<div style="font-size:12px;color:var(--na)">Monofila — solo fila motor</div>'}
+    </div>`;
+}
+
+function startInspection(){
+  const code = document.getElementById('sel-tracker').value;
+  if(!code) return;
+  openTracker(code);
+}
+
+// ============================================================
+// TRACKER VIEW
+// ============================================================
+function renderTracker(){
+  const code = VIEW.tracker;
+  const td = getTrackerData(code);
+  const master = getMasterInfo(code);
+  const cfg = PILLAR_CONFIG[master.type];
+  const c = countFields(code);
+  const photos = Object.values(td.photos||{}).reduce((a,arr)=>a+arr.length,0);
+
+  let html = `
+  <div class="hdr">
+    <button class="btn-icon btn-back" onclick="VIEW.screen='home';render()">←</button>
+    <div><h1>${code}</h1><div class="sub">${master.type} · ${c.pct}% · 📷${photos}</div></div>
+    <div class="hdr-r">
+      <div id="sync-indicator" style="font-size:14px;display:flex;align-items:center"></div>
+      <button class="btn-icon" onclick="VIEW.showExport=!VIEW.showExport;render()" style="background:var(--ac)">📤</button>
+      <div class="badge" style="background:${c.pct===100?'var(--ok)':'var(--sf2)'};color:${c.pct===100?'#fff':'var(--ac)'}">${c.pct}%</div>
+    </div>
+  </div>`;
+
+  if(VIEW.showExport){
+    html += `
+    <div class="export-panel">
+      <div class="section-title">Exportar ${code}</div>
+      <button class="export-btn" onclick="exportTrackerXLSX('${code}');VIEW.showExport=false;render()" style="background:#217346;color:#fff">📊 Exportar a Excel</button>
+    </div>`;
+  }
+
+  // GPS + Project coords
+  html += `<div class="content" style="padding-top:8px">`;
+  html += `<div class="gps-info">📍 Coord. proyecto: <b>${master.mx?.toFixed(3)||'—'}</b>, <b>${master.my?.toFixed(3)||'—'}</b></div>`;
+  if(GPS_POS){
+    html += `<div class="gps-info"><div class="gps-dot"></div>GPS móvil: ${GPS_POS.lat.toFixed(6)}, ${GPS_POS.lon.toFixed(6)} · ±${Math.round(GPS_POS.acc)}m</div>`;
+  }
+
+  // Tab: Cimentaciones / Montaje
+  const cimPct = c.cimT>0?Math.round(c.cimF/c.cimT*100):0;
+  const montPct = c.montT>0?Math.round(c.montF/c.montT*100):0;
+  html += `<div style="display:flex;gap:8px;margin-bottom:12px">`;
+  ['cim','mont'].forEach(t => {
+    const label = t==='cim'?'Cimentaciones':'Montaje';
+    const pct = t==='cim'?cimPct:montPct;
+    const filled = t==='cim'?c.cimF:c.montF;
+    const total = t==='cim'?c.cimT:c.montT;
+    html += `<button onclick="VIEW.tab='${t}';VIEW.pilarIdx=0;render()" style="flex:1;padding:12px;border-radius:12px;border:2px solid ${VIEW.tab===t?'var(--ac)':'var(--bd)'};background:${VIEW.tab===t?'var(--sf2)':'transparent'}">
+      <div style="font-size:13px;font-weight:700;color:${VIEW.tab===t?'var(--ac)':'var(--td)'}">${label}</div>
+      <div class="prog" style="margin-top:6px"><div class="prog-bar ${pct===100?'done':''}" style="width:${pct}%"></div></div>
+      <div style="font-size:11px;color:var(--td);margin-top:4px">${filled}/${total}</div>
+    </button>`;
+  });
+  html += `</div>`;
+
+  if(VIEW.tab === 'cim'){
+    html += renderCimentaciones(code, td, master, cfg);
+  } else {
+    html += renderMontaje(code, td);
+  }
+
+  // Observaciones
+  html += `
+  <div style="margin-top:20px">
+    <div class="section-title">Observaciones</div>
+    <textarea class="textarea" rows="3" placeholder="Escribe observaciones..." oninput="getTrackerData('${code}').obs=this.value;saveState();syncTracker('${code}')">${td.obs||''}</textarea>
+  </div></div>`;
+
+  return html;
+}
+
+// ============================================================
+// CIMENTACIONES FORM
+// ============================================================
+function renderCimentaciones(code, td, master, cfg){
+  const filas = cfg.conducida ? ['motor','conducida'] : ['motor'];
+  let html = '';
+
+  // Fila tabs (only if bifila)
+  if(cfg.conducida){
+    html += `<div class="tabs">`;
+    filas.forEach(f => {
+      const label = f==='motor'?'Fila Motor':'Fila Conducida';
+      html += `<button class="tab ${VIEW.fila===f?'active':''}" onclick="VIEW.fila='${f}';VIEW.pilarIdx=0;render()">${label}</button>`;
+    });
+    html += `</div>`;
+  }
+
+  const pillars = cfg[VIEW.fila] || cfg.motor;
+  const prefix = VIEW.fila === 'motor' ? 'fm' : 'fc';
+  const pi = VIEW.pilarIdx;
+
+  // Pilar selector
+  html += `<div class="pilars">`;
+  pillars.forEach((p, idx) => {
+    let filled = 0;
+    const total = MEDICIONES.length + COMPROBACIONES.length;
+    [...MEDICIONES,...COMPROBACIONES].forEach(f => {
+      if(td.cim[`${prefix}_${idx}_${f.id}`] != null) filled++;
+    });
+    const cls = filled===total ? 'complete' : idx===pi ? 'active' : '';
+    html += `<button class="pilar-btn ${cls}" onclick="VIEW.pilarIdx=${idx};render()">
+      ${p}<div class="pilar-sub">${filled}/${total}</div>
+    </button>`;
+  });
+  html += `</div>`;
+
+  // Photo section
+  const photoKey = `cim_${prefix}_${pillars[pi]}`;
+  const pilarPhotos = td.photos[photoKey] || [];
+  html += `<div class="card">
+    <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:6px">📷 Fotos — ${pillars[pi]}</div>
+    <div class="photo-row">`;
+  pilarPhotos.forEach((ph,i) => {
+    html += `<div class="photo-thumb"><img src="${ph.data}"><button class="photo-del" onclick="removePhoto('${code}','${photoKey}',${i})">×</button></div>`;
+  });
+  html += `<button class="photo-add" onclick="takePhoto('${code}','${photoKey}')"><span>📷</span><span>Foto</span></button>`;
+  html += `</div></div>`;
+
+  // Mediciones
+  html += `<div class="section-title">Mediciones — ${pillars[pi]}</div>`;
+  MEDICIONES.forEach(m => {
+    const key = `${prefix}_${pi}_${m.id}`;
+    const val = td.cim[key];
+    let outRange = false;
+    if(m.tol && val != null){
+      outRange = val < m.tol[0] || val > m.tol[1];
+    }
+    html += `<div class="card">
+      <div style="font-size:13px;margin-bottom:8px">${m.label}</div>`;
+    if(m.type === 'number'){
+      html += `<div style="display:flex;align-items:center;gap:8px">
+        <input type="number" inputmode="decimal" step="any" class="input-num ${val!=null?'has-val':''} ${outRange?'out-range':''}"
+          value="${val??''}" placeholder="—"
+          onchange="setCimVal('${code}','${key}',this.value);render()">
+        ${m.unit?`<span style="font-size:13px;color:var(--td)">${m.unit}</span>`:''}
+      </div>`;
+      if(outRange) html += `<div style="font-size:11px;color:var(--no);margin-top:4px">⚠ Fuera de tolerancia (${m.tol[0]} a ${m.tol[1]})</div>`;
+    } else {
+      html += renderOkNoNa(val, `setCimVal('${code}','${key}','{V}');render()`);
+    }
+    html += `</div>`;
+  });
+
+  // Comprobaciones
+  html += `<div class="section-title" style="margin-top:12px">Comprobación — ${pillars[pi]}</div>`;
+  COMPROBACIONES.forEach(c => {
+    const key = `${prefix}_${pi}_${c.id}`;
+    const val = td.cim[key];
+    html += `<div class="card card-row">
+      <div class="card-label">${c.label}</div>
+      ${renderOkNoNa(val, `setCimVal('${code}','${key}','{V}');render()`, true)}
+    </div>`;
+  });
+
+  return html;
+}
+
+function setCimVal(code, key, val){
+  const td = getTrackerData(code);
+  if(val === '' || val === null || val === 'null'){td.cim[key]=null;}
+  else if(val==='OK'||val==='NO'||val==='NA'||val==='SI'||val==='N/A'){
+    td.cim[key] = td.cim[key]===val ? null : val;
+  } else {
+    td.cim[key] = parseFloat(val);
+  }
+  saveState();
+  syncTracker(code);
+}
+
+// ============================================================
+// MONTAJE FORM
+// ============================================================
+function renderMontaje(code, td){
+  let html = `<div class="tabs">`;
+  MONTAJE_SECTIONS.forEach(sec => {
+    const filled = sec.items.filter(i=>td.mont[i.id]!=null).length;
+    const label = sec.title.length > 18 ? sec.title.substring(0,16)+'…' : sec.title;
+    if(!VIEW.montSec) VIEW.montSec = MONTAJE_SECTIONS[0].id;
+    html += `<button class="tab ${VIEW.montSec===sec.id?'active':''}" onclick="VIEW.montSec='${sec.id}';render()">${label} <span class="cnt">${filled}/${sec.items.length}</span></button>`;
+  });
+  html += `</div>`;
+
+  const sec = MONTAJE_SECTIONS.find(s=>s.id===VIEW.montSec) || MONTAJE_SECTIONS[0];
+
+  // Photos
+  const photoKey = `mont_${sec.id}`;
+  const secPhotos = td.photos[photoKey] || [];
+  html += `<div class="card" style="margin-top:8px">
+    <div style="font-size:11px;font-weight:700;color:var(--td);margin-bottom:6px">📷 Fotos — ${sec.title}</div>
+    <div class="photo-row">`;
+  secPhotos.forEach((ph,i) => {
+    html += `<div class="photo-thumb"><img src="${ph.data}"><button class="photo-del" onclick="removePhoto('${code}','${photoKey}',${i})">×</button></div>`;
+  });
+  html += `<button class="photo-add" onclick="takePhoto('${code}','${photoKey}')"><span>📷</span><span>Foto</span></button>`;
+  html += `</div></div>`;
+
+  sec.items.forEach(item => {
+    const val = td.mont[item.id];
+    html += `<div class="card card-row">
+      <div class="card-label">${item.label}</div>
+      ${renderOkNoNa(val, `setMontVal('${code}','${item.id}','{V}');render()`, true)}
+    </div>`;
+  });
+  return html;
+}
+
+function setMontVal(code, key, val){
+  const td = getTrackerData(code);
+  td.mont[key] = td.mont[key]===val ? null : val;
+  saveState();
+  syncTracker(code);
+}
+
+// ============================================================
+// OK/NO/NA BUTTONS
+// ============================================================
+function renderOkNoNa(val, onclickTemplate, compact=false){
+  const cls = compact ? 'okno compact' : 'okno';
+  return `<div class="${cls}">
+    ${['OK','NO','NA'].map(opt => {
+      const selCls = val===opt ? `sel-${opt.toLowerCase()}` : '';
+      const onclick = onclickTemplate.replace('{V}', opt);
+      return `<button class="${selCls}" onclick="${onclick}">${opt}</button>`;
+    }).join('')}
+  </div>`;
+}
+
+// ============================================================
+// PHOTO FUNCTIONS
+// ============================================================
+function takePhoto(code, key){
+  photoCallback = (photos) => {
+    const td = getTrackerData(code);
+    if(!td.photos[key]) td.photos[key] = [];
+    td.photos[key].push(...photos);
+    saveState(); syncTracker(code); render();
+  };
+  document.getElementById('camera-input').click();
+}
+
+function removePhoto(code, key, idx){
+  const td = getTrackerData(code);
+  if(td.photos[key]) td.photos[key].splice(idx, 1);
+  saveState(); syncTracker(code); render();
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard(){
+  const codes = Object.keys(APP.trackers).sort();
+  const stats = codes.map(c => ({code:c, ...countFields(c), master:getMasterInfo(c)}));
+  const completed = stats.filter(s=>s.pct===100).length;
+  const inProgress = stats.filter(s=>s.pct>0&&s.pct<100).length;
+  const avgPct = stats.length>0 ? Math.round(stats.reduce((a,s)=>a+s.pct,0)/stats.length) : 0;
+  let nos=0, totalPhotos=0;
+  codes.forEach(c=>{
+    const td=APP.trackers[c];
+    Object.values(td.cim||{}).forEach(v=>{if(v==='NO')nos++});
+    Object.values(td.mont||{}).forEach(v=>{if(v==='NO')nos++});
+    totalPhotos += Object.values(td.photos||{}).reduce((a,arr)=>a+arr.length,0);
+  });
+
+  let html = `
+  <div class="hdr">
+    <button class="btn-icon btn-back" onclick="VIEW.screen='home';render()">←</button>
+    <div><h1>Dashboard</h1><div class="sub">ISFV ATALAYA</div></div>
+    <div class="hdr-r">
+      <button class="export-btn" onclick="exportDashboardXLSX()" style="height:40px;padding:0 16px;background:#217346;color:#fff;border-radius:12px;font-size:13px;width:auto;margin:0">📊 Excel</button>
+    </div>
+  </div>
+  <div class="content" style="padding-top:16px">
+    <div class="grid-2">
+      <div class="stat-card"><div class="stat-label">Avance global</div><div class="stat-val" style="color:var(--ac)">${avgPct}%</div><div class="stat-sub">${codes.length} trackers</div></div>
+      <div class="stat-card"><div class="stat-label">Completados</div><div class="stat-val" style="color:var(--ok)">${completed}</div><div class="stat-sub">de ${codes.length}</div></div>
+      <div class="stat-card"><div class="stat-label">No conformidades</div><div class="stat-val" style="color:${nos>0?'var(--no)':'var(--ok)'}">${nos}</div><div class="stat-sub">puntos NO</div></div>
+      <div class="stat-card"><div class="stat-label">Fotografías</div><div class="stat-val" style="color:var(--ac)">${totalPhotos}</div><div class="stat-sub">capturadas</div></div>
+    </div>`;
+
+  // Group by PV
+  const byPV = {};
+  stats.forEach(s => {
+    const pv = s.master?.pv || 0;
+    if(!byPV[pv]) byPV[pv] = [];
+    byPV[pv].push(s);
+  });
+
+  Object.entries(byPV).sort((a,b)=>a[0]-b[0]).forEach(([pv, pvStats]) => {
+    const done = pvStats.filter(s=>s.pct===100).length;
+    html += `
+    <div class="card" style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+        <span style="font-weight:700;font-size:14px">PV${String(pv).padStart(2,'0')}</span>
+        <span style="font-size:11px;padding:4px 8px;border-radius:8px;background:var(--sf2);color:var(--td)">${done}/${pvStats.length}</span>
+      </div>
+      <div class="tracker-grid">
+        ${pvStats.sort((a,b)=>(a.master?.num||0)-(b.master?.num||0)).map(s =>
+          `<div class="tracker-cell ${s.pct===100?'prog-done':s.pct>0?'prog-some':''}">
+            <div>${s.master?.num||s.code}</div>
+            <div style="font-size:10px;opacity:.6">${s.pct}%</div>
+          </div>`
+        ).join('')}
+      </div>
+    </div>`;
+  });
+
+  html += '</div>';
+  return html;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+startGPS();
+render();
+setTimeout(updateSyncIndicator, 100);
+
+// Register Service Worker
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').then(r=>console.log('SW OK:',r.scope)).catch(e=>console.log('SW err:',e));
+  });
+}
+</script>
+</body>
+</html>
