@@ -80,7 +80,7 @@ let APP=ld(SK)||{trackers:{}}, CFG=ld(CK)||{syncUrl:'',tecnico:''};
 const SYNC_URL='https://script.google.com/macros/s/AKfycbxNbWR8rqrsugUEfJClSfTCtJVI9Gze5j9l6330Iw81v_fuTApAaAZkwt3GEjqHIBQ6/exec';
 CFG.syncUrl=SYNC_URL;
 let V={screen:CFG.tecnico?'home':'setup',tr:null,tab:'cim',pi:0,fila:'motor',exp:false,ms:null};
-let GPS=null, SYNC_OK=null, SYNC_Q=[], SYNC_T=null;
+let GPS=null, LAST_CHG=null, SYNC_OK=null, SYNC_Q=[], SYNC_T=null;
 
 function ld(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null}}
 function sv(){try{localStorage.setItem(SK,JSON.stringify(APP))}catch(e){}}
@@ -197,6 +197,7 @@ function syncTracker(code){
     ob:(td.obs||"").substring(0,100),
     gl:last.lat||"",go:last.lon||""
   };
+  if(LAST_CHG){payload.fk=LAST_CHG.k;payload.fv=LAST_CHG.v;payload.fp=LAST_CHG.p;LAST_CHG=null}
   if(SYNC_T)clearTimeout(SYNC_T);
   SYNC_T=setTimeout(function(){doSync(payload)},3000);
 }
@@ -208,18 +209,6 @@ function doSync(payload){
   s.src=url;
   s.onload=function(){showSync("ok");document.head.removeChild(s)};
   s.onerror=function(){showSync("ok");try{document.head.removeChild(s)}catch(e){}};
-  document.head.appendChild(s);
-}
-
-function syncField(code,key,val,pilar){
-  if(!CFG.syncUrl)return;
-  var p={a:"f",t:code,k:key,v:String(val??""),p:pilar||"",te:CFG.tecnico||""};
-  var encoded=encodeURIComponent(JSON.stringify(p));
-  var url=CFG.syncUrl+"?d="+encoded;
-  var s=document.createElement("script");
-  s.src=url;
-  s.onload=function(){try{document.head.removeChild(s)}catch(e){}};
-  s.onerror=function(){try{document.head.removeChild(s)}catch(e){}};
   document.head.appendChild(s);
 }
 
@@ -458,7 +447,7 @@ function setCV(code,key,val){const td=getTD(code);
   else if(['OK','NO','NA','SI','N/A'].includes(val))td.cim[key]=td.cim[key]===val?null:val;
   else td.cim[key]=parseFloat(val);
   var m=getMI(code),cfg=PCFG[m.type],pils=cfg[V.fila]||cfg.motor;
-  syncField(code,key,td.cim[key],pils[V.pi]||'');
+  LAST_CHG={k:key,v:String(td.cim[key]!=null?td.cim[key]:''),p:pils[V.pi]||''};
   sv();syncTracker(code);R();
 }
 
@@ -478,7 +467,7 @@ function rMont(code,td){
     h+='<div class="card card-row"><div class="card-label">'+it.label+'</div>'+rOkNo(val,"setMV('"+code+"','"+it.id+"','{V}')",true)+'</div>';
   });return h;
 }
-function setMV(code,key,val){const td=getTD(code);td.mont[key]=td.mont[key]===val?null:val;syncField(code,key,td.mont[key],'mont');sv();syncTracker(code);R()}
+function setMV(code,key,val){const td=getTD(code);td.mont[key]=td.mont[key]===val?null:val;LAST_CHG={k:key,v:String(td.mont[key]!=null?td.mont[key]:''),p:'mont'};sv();syncTracker(code);R()}
 
 // OK/NO/NA
 function rOkNo(val,tpl,compact){
