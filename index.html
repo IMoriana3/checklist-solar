@@ -238,7 +238,13 @@ const MONTAJE_SECTIONS = [
 function startGPS(){
   if(!navigator.geolocation) return;
   GPS_WATCH = navigator.geolocation.watchPosition(
-    p => {GPS_POS = {lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,ts:Date.now()}; render();},
+    p => {
+      GPS_POS = {lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,ts:Date.now()};
+      // Only update GPS display elements, NOT full re-render
+      document.querySelectorAll('.gps-live').forEach(el => {
+        el.innerHTML = `<div class="gps-dot"></div>GPS: ${GPS_POS.lat.toFixed(6)}, ${GPS_POS.lon.toFixed(6)} · ±${Math.round(GPS_POS.acc)}m`;
+      });
+    },
     ()=>{}, {enableHighAccuracy:true, maximumAge:10000}
   );
 }
@@ -659,7 +665,9 @@ function renderHome(){
     </button>`;
 
   if(GPS_POS){
-    html += `<div class="gps-info"><div class="gps-dot"></div>GPS activo · Precisión: ${Math.round(GPS_POS.acc)}m</div>`;
+    html += `<div class="gps-info gps-live"><div class="gps-dot"></div>GPS: ${GPS_POS.lat.toFixed(6)}, ${GPS_POS.lon.toFixed(6)} · ±${Math.round(GPS_POS.acc)}m</div>`;
+  } else {
+    html += `<div class="gps-info gps-live" style="opacity:0.5">📍 Esperando GPS...</div>`;
   }
 
   // Recent trackers
@@ -805,7 +813,7 @@ function renderTracker(){
   html += `<div class="content" style="padding-top:8px">`;
   html += `<div class="gps-info">📍 Coord. proyecto: <b>${master.mx?.toFixed(3)||'—'}</b>, <b>${master.my?.toFixed(3)||'—'}</b></div>`;
   if(GPS_POS){
-    html += `<div class="gps-info"><div class="gps-dot"></div>GPS móvil: ${GPS_POS.lat.toFixed(6)}, ${GPS_POS.lon.toFixed(6)} · ±${Math.round(GPS_POS.acc)}m</div>`;
+    html += `<div class="gps-info gps-live"><div class="gps-dot"></div>GPS: ${GPS_POS.lat.toFixed(6)}, ${GPS_POS.lon.toFixed(6)} · ±${Math.round(GPS_POS.acc)}m</div>`;
   }
 
   // Tab: Cimentaciones / Montaje
