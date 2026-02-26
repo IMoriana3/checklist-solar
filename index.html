@@ -211,6 +211,18 @@ function doSync(payload){
   document.head.appendChild(s);
 }
 
+function syncField(code,key,val,pilar){
+  if(!CFG.syncUrl)return;
+  var p={a:"f",t:code,k:key,v:String(val??""),p:pilar||"",te:CFG.tecnico||""};
+  var encoded=encodeURIComponent(JSON.stringify(p));
+  var url=CFG.syncUrl+"?d="+encoded;
+  var s=document.createElement("script");
+  s.src=url;
+  s.onload=function(){try{document.head.removeChild(s)}catch(e){}};
+  s.onerror=function(){try{document.head.removeChild(s)}catch(e){}};
+  document.head.appendChild(s);
+}
+
 function showSync(status){
   SYNC_OK=status;
   document.querySelectorAll('.sync-st').forEach(el=>{
@@ -445,6 +457,8 @@ function setCV(code,key,val){const td=getTD(code);
   if(val===''||val==null)td.cim[key]=null;
   else if(['OK','NO','NA','SI','N/A'].includes(val))td.cim[key]=td.cim[key]===val?null:val;
   else td.cim[key]=parseFloat(val);
+  var m=getMI(code),cfg=PCFG[m.type],pils=cfg[V.fila]||cfg.motor;
+  syncField(code,key,td.cim[key],pils[V.pi]||'');
   sv();syncTracker(code);R();
 }
 
@@ -464,7 +478,7 @@ function rMont(code,td){
     h+='<div class="card card-row"><div class="card-label">'+it.label+'</div>'+rOkNo(val,"setMV('"+code+"','"+it.id+"','{V}')",true)+'</div>';
   });return h;
 }
-function setMV(code,key,val){const td=getTD(code);td.mont[key]=td.mont[key]===val?null:val;sv();syncTracker(code);R()}
+function setMV(code,key,val){const td=getTD(code);td.mont[key]=td.mont[key]===val?null:val;syncField(code,key,td.mont[key],'mont');sv();syncTracker(code);R()}
 
 // OK/NO/NA
 function rOkNo(val,tpl,compact){
