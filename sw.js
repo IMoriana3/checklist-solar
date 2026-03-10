@@ -1,4 +1,4 @@
-const CACHE_NAME = 'checklist-solar-v2';
+const CACHE_NAME = 'checklist-solar-v3';
 const urlsToCache = ['./', './index.html', './master.js', './manifest.json'];
 
 self.addEventListener('install', e => {

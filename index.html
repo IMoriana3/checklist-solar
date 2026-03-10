@@ -46,11 +46,12 @@ input,textarea,select{border:none;outline:none;font-family:inherit}
 .pils{display:flex;overflow-x:auto;gap:6px;padding:10px 0;-webkit-overflow-scrolling:touch}
 .pils::-webkit-scrollbar{display:none}
 .pil{flex-shrink:0;min-width:52px;padding:6px 8px;border-radius:8px;font-size:11px;font-weight:700;text-align:center;border:2px solid var(--bd);background:transparent;color:var(--td)}
-.pil.on{background:var(--sf2);border-color:var(--ac);color:var(--ac)}
-.pil.p-ok{background:rgba(34,197,94,.15);border-color:var(--ok);color:var(--ok)}
-.pil.p-mal{background:rgba(239,68,68,.15);border-color:var(--no);color:var(--no)}
-.pil.p-pdte{background:rgba(245,158,11,.15);border-color:#f59e0b;color:#f59e0b}
-.pil.p-empty{background:rgba(0,176,240,.1);border-color:#00b0f0;color:#00b0f0}
+.pil.on{outline:2px solid var(--ac);outline-offset:2px}
+.pil.p-ok{background:rgba(34,197,94,.2);border-color:var(--ok);color:var(--ok)}
+.pil.p-mal{background:rgba(239,68,68,.2);border-color:var(--no);color:var(--no)}
+.pil.p-pdte{background:rgba(245,158,11,.2);border-color:#f59e0b;color:#f59e0b}
+.pil.p-empty{background:rgba(0,176,240,.15);border-color:#00b0f0;color:#00b0f0}
+.pil:not(.p-ok):not(.p-mal):not(.p-pdte):not(.p-empty).on{background:var(--sf2);border-color:var(--ac);color:var(--ac)}
 .prog{width:100%;height:7px;border-radius:4px;background:var(--bd);overflow:hidden}
 .prog-b{height:100%;border-radius:4px;transition:width .5s;background:var(--ac)}
 .prog-b.done{background:var(--ok)}
@@ -132,12 +133,12 @@ function calcDistSum(td,px,pi,type){
 // FIELD DEFINITIONS
 const MED=[
   {id:'altura',label:'Altura pilar (Distancia libre)',type:'number',unit:'mm'},
-  {id:'vert_ns',label:'Verticalidad N-S',type:'number',unit:'º',tol:[88,92]},
+  {id:'dist_ns_tramo',label:'Distancia N-S al pilar anterior (tramo)',type:'number',unit:'mm',isTramo:true},
+  {id:'vert_ns',label:'Verticalidad N-S',type:'number',unit:'º',tol:[88,102]},
   {id:'vert_eo',label:'Verticalidad E-O',type:'number',unit:'º',tol:[88,92]},
   {id:'torsion',label:'Torsión en cabeza de pilares',type:'okno',def:'NO'},
   {id:'desv_eo',label:'Desviación Este-Oeste cabezas',type:'okno',def:'NO'},
   {id:'desv_altura',label:'Desviación de Altura (Dv)',type:'okno',def:'NO'},
-  {id:'dist_ns_tramo',label:'Distancia N-S al pilar anterior (tramo)',type:'number',unit:'mm',isTramo:true},
 ];
 const COMP=[
   {id:'galvanizado',label:'Reparación galvanizado según procedimiento',def:'SI'},
@@ -225,11 +226,17 @@ function calcStatus(code){
       if(eo!=null){vFill++;if(eo<88||eo>92)vBad++}
     });
     result[pre+'vert']=vFill===0?'':vFill<vTotal?'PDTE':vBad>0?'SI/MAL':'SI';
-    // Resto (comprobaciones)
+    // Resto (comprobaciones + okno mediciones): compare against defaults
     var rFill=0,rTotal=0,rBad=0;
+    var defMap={torsion:'NO',desv_eo:'NO',desv_altura:'NO',
+      galvanizado:'SI',golpes:'NO',entalladura:'NO',pliegue:'NO',cabezas:'NO',
+      corte:'NO',mecanizados:'NO',orientacion:'SI',perfil:'SI',relleno:'N/A',
+      oxidacion:'NO',socavones:'NO',cimentacion:'SI',zanjas:'NO',centrado:'N/A',diametro:'N/A'};
+    var restoFields=Object.keys(defMap);
     pils.forEach(function(_,i){
-      ['torsion','desv_eo','desv_altura','galvanizado','golpes','entalladura','pliegue','cabezas','corte','mecanizados','orientacion','perfil','relleno','oxidacion','socavones','cimentacion','zanjas','centrado','diametro'].forEach(function(fid){
-        rTotal++;var v=td.cim[px+'_'+i+'_'+fid];if(v!=null){rFill++;if(v==='NO')rBad++}
+      restoFields.forEach(function(fid){
+        rTotal++;var v=td.cim[px+'_'+i+'_'+fid];
+        if(v!=null){rFill++;if(v!==defMap[fid])rBad++}
       });
     });
     result[pre+'rest']=rFill===0?'':rFill<rTotal?'PDTE':rBad>0?'SI/MAL':'SI';
@@ -450,26 +457,23 @@ function rSelect(a){
   a.innerHTML='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:18px">←</button><div><h1>Seleccionar Tracker</h1></div></div><div class="cnt" style="padding-top:14px"><div class="card" style="padding:16px">'
   +'<label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">PV</label>'
   +'<select class="sel" id="sp" style="width:100%;margin-bottom:12px" onchange="updSub()"><option value="">— Selecciona PV —</option>'+pvs.map(p=>'<option value="'+p+'">PV'+String(p).padStart(2,'0')+'</option>').join('')+'</select>'
-  +'<div id="subDiv" class="hide"><label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Subcampo</label><select class="sel" id="ss" style="width:100%;margin-bottom:12px" onchange="updTL()"><option value="">— Selecciona subcampo —</option></select></div>'
+  +'<label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Subcampo</label><select class="sel" id="ss" style="width:100%;margin-bottom:12px" onchange="updTL()"><option value="">— Primero selecciona PV —</option></select>'
   +'<label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Nº Tracker</label>'
   +'<select class="sel" id="st" style="width:100%;margin-bottom:12px"><option value="">— Primero selecciona PV —</option></select>'
   +'<div id="tp"></div><button id="bs" class="hide" onclick="startInsp()" style="width:100%;height:46px;border-radius:12px;background:var(--ac);color:var(--bg);font-size:15px;font-weight:700;margin-top:10px">Comenzar Inspección</button></div></div>';
 }
 function updSub(){
   var pv=parseInt(document.getElementById('sp').value);
-  var subDiv=document.getElementById('subDiv');
   var ssSel=document.getElementById('ss');
   var stSel=document.getElementById('st');
   stSel.innerHTML='<option value="">— Primero selecciona PV —</option>';
   document.getElementById('tp').innerHTML='';document.getElementById('bs').classList.add('hide');
-  if(!pv){subDiv.classList.add('hide');return}
+  if(!pv){ssSel.innerHTML='<option value="">— Primero selecciona PV —</option>';return}
   var subs=[...new Set(Object.values(MASTER_DATA).filter(function(d){return d.pv===pv&&d.sub>0}).map(function(d){return d.sub}))].sort(function(a,b){return a-b});
   if(subs.length>0){
-    subDiv.classList.remove('hide');
     ssSel.innerHTML='<option value="">— Selecciona subcampo —</option>'+subs.map(function(s){return'<option value="'+s+'">Subcampo '+s+'</option>'}).join('');
-    ssSel.onchange=updTL;
   }else{
-    subDiv.classList.add('hide');
+    ssSel.innerHTML='<option value="">— Sin subcampos —</option>';
     updTL();
   }
 }
@@ -522,14 +526,19 @@ function rCim(code,td,m,cfg){
   if(cfg.conducida){h+='<div class="tabs">';filas.forEach(f=>h+='<button class="tab '+(V.fila===f?'on':'')+'" onclick="V.fila=\''+f+'\';V.pi=0;R()">'+(f==='motor'?'Fila Motor':'Fila Conducida')+'</button>');h+='</div>'}
   const pils=cfg[V.fila]||cfg.motor,px=V.fila==='motor'?'fm':'fc',pi=V.pi,mpI=getMPi(m.type);
   h+='<div class="pils">';
+  // Fields where SI means defect found (bad)
+  var siBad=['golpes','entalladura','pliegue','cabezas','corte','mecanizados','oxidacion','socavones','zanjas'];
+  // Fields where NO means not done/not compliant (bad)
+  var noBad=['galvanizado','orientacion','perfil','cimentacion'];
   pils.forEach((p,i)=>{
     let fl=0,hasBad=false;
     [...MED,...COMP].forEach(f=>{
       var key=px+'_'+i+'_'+f.id, val=td.cim[key];
       if(val!=null){
         fl++;
-        if(val==='NO')hasBad=true;
         if(f.tol&&typeof val==='number'&&(val<f.tol[0]||val>f.tol[1]))hasBad=true;
+        if(val==='SI'&&siBad.indexOf(f.id)>=0)hasBad=true;
+        if(val==='NO'&&noBad.indexOf(f.id)>=0)hasBad=true;
       }
     });
     // Check accumulated distance tolerance
