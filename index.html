@@ -344,8 +344,10 @@ function countF(code){
   const cfg=PCFG[m.type],filas=cfg.conducida?['motor','conducida']:['motor'];
   let cimT=0,cimF=0;const td=getTD(code);
   filas.forEach(f=>{const pils=cfg[f];cimT+=pils.length*(MED.length+COMP.length);
-    pils.forEach((_,i)=>{const px=f==='motor'?'fm':'fc';
-      [...MED,...COMP].forEach(field=>{if(td.cim[px+'_'+i+'_'+field.id]!=null)cimF++});
+    pils.forEach((_,i)=>{const px=f==='motor'?'fm':'fc';const mpi=getMPi(m.type);
+      [...MED,...COMP].forEach(field=>{
+        if(field.isTramo&&i===mpi){cimT--;return}
+        if(td.cim[px+'_'+i+'_'+field.id]!=null)cimF++});
     });
   });
   const montT=MONT.reduce((a,s)=>a+s.items.length,0);
