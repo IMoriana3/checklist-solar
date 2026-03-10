@@ -216,6 +216,11 @@ function calcStatus(code){
   filas.forEach(function(f){
     var pils=cfg[f],px=f==='motor'?'fm':'fc',mpI=getMPi(m.type);
     var pre=f==='motor'?'m_':'c_';
+    // Check if any manual (numeric) field has been filled in this fila
+    var anyManual=false;
+    pils.forEach(function(_,i){
+      if(td.cim[px+'_'+i+'_altura']!=null||td.cim[px+'_'+i+'_vert_ns']!=null||td.cim[px+'_'+i+'_vert_eo']!=null||td.cim[px+'_'+i+'_dist_ns_tramo']!=null)anyManual=true;
+    });
     // Altura
     var aFill=0,aTotal=pils.length;
     pils.forEach(function(_,i){if(td.cim[px+'_'+i+'_altura']!=null)aFill++});
@@ -250,7 +255,7 @@ function calcStatus(code){
         if(v!=null){rFill++;if(v!==defMap[fid])rBad++}
       });
     });
-    result[pre+'rest']=rFill===0?'':rFill<rTotal?'PDTE':rBad>0?'SI/MAL':'SI';
+    result[pre+'rest']=!anyManual?'':rFill<rTotal?'PDTE':rBad>0?'SI/MAL':'SI';
   });
   return result;
 }
