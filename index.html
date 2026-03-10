@@ -260,13 +260,49 @@ function calcStatus(code){
   return result;
 }
 
+function pullTracker(code,callback){
+  if(!CFG.syncUrl)return callback&&callback();
+  var p={a:'g',t:code};
+  var cbName='_cb_'+Date.now();
+  window[cbName]=function(data){
+    delete window[cbName];
+    if(data&&data.fields){
+      var td=getTD(code);
+      var changed=false;
+      Object.keys(data.fields).forEach(function(key){
+        var remote=data.fields[key];
+        if(remote.v!=null&&remote.v!==''){
+          // Remote wins if local is empty, or if remote is newer
+          var localVal=td.cim[key];
+          if(localVal==null||localVal===''){
+            td.cim[key]=isNaN(remote.v)?remote.v:parseFloat(remote.v);
+            changed=true;
+          }
+        }
+      });
+      // Store who-did-what
+      if(data.who)td._who=data.who;
+      if(data.locked!=null)td.locked=!!data.locked;
+      if(changed)sv();
+    }
+    if(callback)callback();
+    R();
+  };
+  var url=CFG.syncUrl+'?d='+encodeURIComponent(JSON.stringify(p))+'&cb='+cbName;
+  var s=document.createElement('script');
+  s.src=url;
+  s.onload=function(){try{document.head.removeChild(s)}catch(e){}};
+  s.onerror=function(){try{document.head.removeChild(s)}catch(e){};if(callback)callback();};
+  document.head.appendChild(s);
+}
+
 function syncTracker(code){
   if(!CFG.syncUrl)return;
   var td=getTD(code),m=getMI(code),c=countF(code);
   var nos=0;for(var k in td.cim)if(td.cim[k]==="NO")nos++;for(var k in td.mont)if(td.mont[k]==="NO")nos++;
   var gl=(td.gps_log||[]),last=gl.length?gl[gl.length-1]:{};
   var payload={
-    a:"s",t:code,tp:m?.type||"",pv:m?.pv||"",
+    a:"s",t:code,tp:m?.type||"",pv:m?.pv||"",sub:m?.sub||0,
     mx:m?.mx||"",my:m?.my||"",te:CFG.tecnico||"",
     cp:c.cimT>0?Math.round(c.cimF/c.cimT*100):0,
     mp:c.montT>0?Math.round(c.montF/c.montT*100):0,
@@ -602,7 +638,7 @@ function rHome(a){
   h+='</div>';a.innerHTML=h;
 }
 
-function openTr(code){V.screen='tracker';V.tr=code;V.tab='cim';V.fila='motor';V.pi=0;V.exp=false;V.ms=null;
+function openTr(code){V.screen='tracker';V.tr=code;V.tab='cim';V.fila='motor';V.pi=0;V.exp=false;V.ms=null;pullTracker(code);
   const td=getTD(code);if(!td.gps_log)td.gps_log=[];td.gps_log.push({...gpsNow(),action:'open'});
   initDef(code);sv();R();
 }
@@ -787,7 +823,8 @@ function rCim(code,td,m,cfg){
   });
   h+='<div class="stitle" style="margin-top:10px">Comprobación — '+pils[pi]+'</div>';
   COMP.forEach(c=>{const key=px+'_'+pi+'_'+c.id,val=td.cim[key];
-    h+='<div class="card card-row"><div class="card-label">'+c.label+'</div>'+rOkNo(val,"setCV('"+code+"','"+key+"','{V}')",true)+'</div>';
+    var who=td._who&&td._who[key]?'<div style="font-size:9px;color:var(--td);margin-top:2px">👤 '+td._who[key]+'</div>':'';
+    h+='<div class="card card-row"><div class="card-label">'+c.label+who+'</div>'+rOkNo(val,"setCV('"+code+"','"+key+"','{V}')",true)+'</div>';
   });
   return h;
 }
