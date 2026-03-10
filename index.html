@@ -92,7 +92,7 @@ CFG.syncUrl=SYNC_URL;
 let V={screen:CFG.tecnico?'home':'setup',tr:null,tab:'cim',pi:0,fila:'motor',exp:false,ms:null};
 let GPS=null, LAST_CHG=null, SYNC_OK=null, SYNC_Q=[], SYNC_T=null;
 
-function ld(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null}}
+function ld(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
 function sv(){try{localStorage.setItem(SK,JSON.stringify(APP))}catch(e){}}
 function sc(){try{localStorage.setItem(CK,JSON.stringify(CFG))}catch(e){}}
 
@@ -709,7 +709,7 @@ function startInsp(){var code=document.getElementById('tp').dataset.code;if(code
 function rTracker(a){
   const code=V.tr,td=getTD(code),m=getMI(code),cfg=PCFG[m.type],c=countF(code);
   const ph=Object.values(td.photos||{}).reduce((x,arr)=>x+arr.length,0);
-  let h='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:18px">←</button><div><h1>'+code+'</h1><div class="sub">'+m.type+' · '+c.pct+'%</div></div><div class="hdr-r"><span class="sync-st"></span><span class="upload-st"></span>'+(isAdmin()?'<button class="btn-icon" onclick="toggleLock(\''+code+'\')" style="background:'+(td.locked?'var(--no)':'var(--sf2)')+';color:'+(td.locked?'#fff':'var(--td)');font-size:14px">'+(td.locked?'🔒':'🔓')+'</button>':'')+'<button class="btn-icon" onclick="V.exp=!V.exp;R()" style="background:var(--ac);color:var(--bg)">📤</button><div style="min-width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:'+(c.pct===100?'var(--ok)':'var(--sf2)')+';color:'+(c.pct===100?'#fff':'var(--ac)')+'">'+c.pct+'%</div></div></div>';
+  let h='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:18px">←</button><div><h1>'+code+'</h1><div class="sub">'+m.type+' · '+c.pct+'%</div></div><div class="hdr-r"><span class="sync-st"></span><span class="upload-st"></span>'+(isAdmin()?'<button class="btn-icon" onclick="toggleLock(\''+code+'\')" style="background:'+(td.locked?'var(--no)':'var(--sf2)')+';color:'+(td.locked?'#fff':'var(--td)')+';font-size:14px">'+(td.locked?'🔒':'🔓')+'</button>':'')+'<button class="btn-icon" onclick="V.exp=!V.exp;R()" style="background:var(--ac);color:var(--bg)">📤</button><div style="min-width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:'+(c.pct===100?'var(--ok)':'var(--sf2)')+';color:'+(c.pct===100?'#fff':'var(--ac)')+'">'+c.pct+'%</div></div></div>';
   if(V.exp)h+='<div class="exp"><button class="exp-b" onclick="exportTr(\''+code+'\');V.exp=false;R()" style="background:#217346;color:#fff">📊 Exportar Excel</button></div>';
   h+='<div class="cnt" style="padding-top:6px">';
   if(td.locked)h+='<div style="padding:8px 12px;border-radius:10px;background:rgba(239,68,68,.15);border:1px solid var(--no);color:var(--no);font-size:12px;font-weight:700;text-align:center;margin-bottom:8px">🔒 TRACKER BLOQUEADO — Solo lectura</div>';
