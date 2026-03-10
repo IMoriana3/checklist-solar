@@ -71,6 +71,12 @@ input,textarea,select{border:none;outline:none;font-family:inherit}
 .cnt{padding:0 16px 32px}
 .ta{width:100%;border-radius:10px;padding:10px;font-size:14px;background:var(--sf2);color:var(--tx);border:2px solid var(--bd);resize:none}
 .sum-row{display:flex;align-items:center;gap:8px;margin-top:6px;padding:6px 8px;border-radius:8px;background:var(--sf2);font-size:12px}
+.tr-list{max-height:300px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.tr-item{width:100%;text-align:left;padding:10px 12px;border-radius:10px;margin-bottom:4px;border:2px solid var(--bd);background:var(--sf);display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.tr-item.tr-ok{border-color:var(--ok);background:rgba(34,197,94,.1)}
+.tr-item.tr-wip{border-color:#f59e0b;background:rgba(245,158,11,.1)}
+.tr-item.tr-bad{border-color:var(--no);background:rgba(239,68,68,.1)}
+.tr-item.tr-sel{border-color:var(--ac);background:var(--sf2)}
 .sync-dot{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:4px 8px;border-radius:6px;background:var(--sf2)}
 </style>
 </head>
@@ -461,9 +467,43 @@ function rSelect(a){
   +'<select class="sel" id="sp" style="width:100%;margin-bottom:12px" onchange="updSub()"><option value="">— Selecciona PV —</option>'+pvs.map(p=>'<option value="'+p+'">PV'+String(p).padStart(2,'0')+'</option>').join('')+'</select>'
   +'<label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Subcampo</label><select class="sel" id="ss" style="width:100%;margin-bottom:12px" onchange="updTL()"><option value="">— Primero selecciona PV —</option></select>'
   +'<label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Nº Tracker</label>'
-  +'<select class="sel" id="st" style="width:100%;margin-bottom:12px"><option value="">— Primero selecciona PV —</option></select>'
+  +'<div id="st" style="margin-bottom:12px"><div style="color:var(--td);font-size:13px;padding:8px">— Primero selecciona PV —</div></div>'
   +'<div id="tp"></div><button id="bs" class="hide" onclick="startInsp()" style="width:100%;height:46px;border-radius:12px;background:var(--ac);color:var(--bg);font-size:15px;font-weight:700;margin-top:10px">Comenzar Inspección</button></div></div>';
 }
+function trCimStatus(code){
+  if(!APP.trackers[code])return'none';
+  var td=getTD(code),m=getMI(code);if(!m)return'none';
+  var cfg=PCFG[m.type],filas=cfg.conducida?['motor','conducida']:['motor'];
+  var anyFill=false,allDone=true,anyBad=false;
+  var defMap={torsion:'NO',desv_eo:'NO',desv_altura:'NO',
+    galvanizado:'SI',golpes:'NO',entalladura:'NO',pliegue:'NO',cabezas:'NO',
+    corte:'NO',mecanizados:'NO',orientacion:'SI',perfil:'SI',relleno:'N/A',
+    oxidacion:'NO',socavones:'NO',cimentacion:'SI',zanjas:'NO',centrado:'N/A',diametro:'N/A'};
+  filas.forEach(function(f){
+    var pils=cfg[f],px=f==='motor'?'fm':'fc',mpI=getMPi(m.type);
+    pils.forEach(function(_,i){
+      var fl=0,tt=0,bad=false;
+      [...MED,...COMP].forEach(function(field){
+        if(field.isTramo&&i===mpI)return;
+        tt++;var v=td.cim[px+'_'+i+'_'+field.id];
+        if(v!=null){fl++;
+          if(field.tol&&typeof v==='number'&&(v<field.tol[0]||v>field.tol[1]))bad=true;
+          if(field.def!=null&&v!==field.def)bad=true;
+        }
+      });
+      if(fl>0)anyFill=true;
+      if(fl<tt)allDone=false;
+      if(bad)anyBad=true;
+      if(!bad&&i!==mpI){var ds=calcDistSum(td,px,i,m.type);var dc=getDistCfg(m.type);
+        if(ds!=null&&dc[i]&&(ds<dc[i].tol[0]||ds>dc[i].tol[1]))anyBad=true}
+    });
+  });
+  if(!anyFill)return'none';
+  if(anyBad)return'bad';
+  if(allDone)return'ok';
+  return'wip';
+}
+
 function updSub(){
   var pv=parseInt(document.getElementById('sp').value);
   var ssSel=document.getElementById('ss');
@@ -480,26 +520,42 @@ function updSub(){
   }
 }
 function updTL(){
-  var pv=parseInt(document.getElementById('sp').value),sel=document.getElementById('st');
-  if(!pv){sel.innerHTML='<option value="">— Primero selecciona PV —</option>';return}
+  var pv=parseInt(document.getElementById('sp').value),list=document.getElementById('st');
+  if(!pv){list.innerHTML='<div style="color:var(--td);font-size:13px;padding:8px">— Primero selecciona PV —</div>';return}
   var subSel=document.getElementById('ss');
   var sub=subSel?parseInt(subSel.value):0;
   var hasSubs=[...new Set(Object.values(MASTER_DATA).filter(function(d){return d.pv===pv&&d.sub>0}).map(function(d){return d.sub}))].length>0;
-  if(hasSubs&&!sub){sel.innerHTML='<option value="">— Primero selecciona subcampo —</option>';return}
+  if(hasSubs&&!sub){list.innerHTML='<div style="color:var(--td);font-size:13px;padding:8px">— Primero selecciona subcampo —</div>';return}
   var trs=Object.entries(MASTER_DATA).filter(function(e){return e[1].pv===pv&&(!hasSubs||e[1].sub===sub)}).sort(function(a,b){return a[1].num-b[1].num});
-  sel.innerHTML='<option value="">— Selecciona tracker —</option>'+trs.map(function(e){
+  var h='';
+  trs.forEach(function(e){
     var code=e[0],d=e[1];
-    var ins=APP.trackers[code]?' ✓ '+countF(code).pct+'%':'';
-    return'<option value="'+code+'">'+d.num+' — '+d.type+' ('+d.n+' sop.)'+ins+'</option>'}).join('');
-  sel.onchange=showTP;
+    var st=trCimStatus(code);
+    var cls='tr-item';
+    if(st==='ok')cls+=' tr-ok';
+    else if(st==='wip')cls+=' tr-wip';
+    else if(st==='bad')cls+=' tr-bad';
+    var pct=APP.trackers[code]?countF(code).pct:0;
+    var icon=st==='ok'?'✅':st==='bad'?'⚠️':st==='wip'?'🔶':'';
+    h+='<button class="'+cls+'" data-code="'+code+'" onclick="selTr(this.dataset.code)"><div><span style="font-weight:700">'+d.num+'</span> <span style="font-size:11px;color:var(--td)">'+d.type+' · '+d.n+' sop.</span></div>';
+    if(pct>0)h+='<span style="font-size:12px;font-weight:700">'+icon+' '+pct+'%</span>';
+    h+='</button>';
+  });
+  list.innerHTML='<div class="tr-list">'+h+'</div>';
 }
-function showTP(){
-  var code=document.getElementById('st').value,div=document.getElementById('tp'),btn=document.getElementById('bs');
+function selTr(code){
+  document.getElementById('tp').dataset.code=code;
+  showTP2(code);
+}
+function showTP(){}
+function showTP2(code){
+  var div=document.getElementById('tp'),btn=document.getElementById('bs');
   if(!code){div.innerHTML='';btn.classList.add('hide');return}
+  div.dataset.code=code;
   var m=getMI(code),cfg=PCFG[m.type];btn.classList.remove('hide');
   div.innerHTML='<div style="padding:10px;border-radius:10px;background:var(--sf2);margin-top:8px"><div style="font-weight:700;margin-bottom:4px">'+code+(m.sub>0?' · Subcampo '+m.sub:'')+'</div><div style="font-size:12px;color:var(--td)">Tipo: '+m.type+' · '+m.n+' soportes</div><div style="font-size:12px;color:var(--td)">Coord: '+(m.mx?.toFixed(3)||'—')+', '+(m.my?.toFixed(3)||'—')+'</div><div style="font-size:12px;color:var(--td)">Motor: '+cfg.motor.join(', ')+'</div>'+(cfg.conducida?'<div style="font-size:12px;color:var(--td)">Conducida: '+cfg.conducida.join(', ')+'</div>':'<div style="font-size:12px;color:var(--na)">Monofila</div>')+'</div>';
 }
-function startInsp(){var code=document.getElementById('st').value;if(code)openTr(code)}
+function startInsp(){var code=document.getElementById('tp').dataset.code;if(code)openTr(code)}
 
 // TRACKER
 function rTracker(a){
