@@ -591,6 +591,7 @@ function rCim(code,td,m,cfg){
   pils.forEach((p,i)=>{
     let fl=0,hasBad=false;
     [...MED,...COMP].forEach(f=>{
+      if(f.isTramo&&i===mpI)return;
       var key=px+'_'+i+'_'+f.id, val=td.cim[key];
       if(val!=null){
         fl++;
@@ -602,7 +603,7 @@ function rCim(code,td,m,cfg){
     // Check accumulated distance tolerance
     if(!hasBad&&i!==mpI){var ds=calcDistSum(td,px,i,m.type);var dc=getDistCfg(m.type);
       if(ds!=null&&dc[i]&&(ds<dc[i].tol[0]||ds>dc[i].tol[1]))hasBad=true}
-    var tt=MED.length+COMP.length;
+    var tt=MED.length+COMP.length-(i===mpI?1:0);
     var cls='pil';
     if(i===pi)cls+=' on';
     if(fl===0)cls+=' p-empty';
