@@ -260,17 +260,24 @@ function calcStatus(code){
   return result;
 }
 
+var _plDone=false;
+function pullLocksOnce(){if(_plDone)return;_plDone=true;setTimeout(function(){_plDone=false},30000);pullLocks()}
 function pullLocks(){
   if(!CFG.syncUrl)return;
   var cbName='_cbl_'+Date.now();
   window[cbName]=function(data){
     delete window[cbName];
     if(data&&data.locks){
+      var changed=false;
       Object.keys(data.locks).forEach(function(code){
-        if(APP.trackers[code])APP.trackers[code].locked=data.locks[code];
-        else{APP.trackers[code]=getTD(code);APP.trackers[code].locked=data.locks[code]}
+        var cur=APP.trackers[code]?APP.trackers[code].locked:false;
+        if(cur!==data.locks[code]){
+          if(!APP.trackers[code])getTD(code);
+          APP.trackers[code].locked=data.locks[code];
+          changed=true;
+        }
       });
-      sv();R();
+      if(changed){sv();if(V.screen==='select')updTL()}
     }
   };
   var url=CFG.syncUrl+'?d='+encodeURIComponent(JSON.stringify({a:'gl'}))+'&cb='+cbName;
@@ -664,7 +671,7 @@ function openTr(code){V.screen='tracker';V.tr=code;V.tab='cim';V.fila='motor';V.
 }
 
 // SELECT
-function rSelect(a){pullLocks();
+function rSelect(a){
   const pvs=[...new Set(Object.values(MASTER_DATA).map(d=>d.pv))].sort((x,y)=>x-y);
   a.innerHTML='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:20px;min-width:38px">←</button><div><h1>Seleccionar Tracker</h1></div></div><div class="cnt" style="padding-top:14px"><div class="card" style="padding:16px">'
   +'<label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">PV</label>'
