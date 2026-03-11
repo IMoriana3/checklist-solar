@@ -260,6 +260,26 @@ function calcStatus(code){
   return result;
 }
 
+function pullLocks(){
+  if(!CFG.syncUrl)return;
+  var cbName='_cbl_'+Date.now();
+  window[cbName]=function(data){
+    delete window[cbName];
+    if(data&&data.locks){
+      Object.keys(data.locks).forEach(function(code){
+        if(APP.trackers[code])APP.trackers[code].locked=data.locks[code];
+        else{APP.trackers[code]=getTD(code);APP.trackers[code].locked=data.locks[code]}
+      });
+      sv();R();
+    }
+  };
+  var url=CFG.syncUrl+'?d='+encodeURIComponent(JSON.stringify({a:'gl'}))+'&cb='+cbName;
+  var s=document.createElement('script');
+  s.src=url;s.onload=function(){try{document.head.removeChild(s)}catch(e){}};
+  s.onerror=function(){try{document.head.removeChild(s)}catch(e){}};
+  document.head.appendChild(s);
+}
+
 function pullTracker(code,callback){
   if(!CFG.syncUrl)return callback&&callback();
   var p={a:'g',t:code};
@@ -644,9 +664,9 @@ function openTr(code){V.screen='tracker';V.tr=code;V.tab='cim';V.fila='motor';V.
 }
 
 // SELECT
-function rSelect(a){
+function rSelect(a){pullLocks();
   const pvs=[...new Set(Object.values(MASTER_DATA).map(d=>d.pv))].sort((x,y)=>x-y);
-  a.innerHTML='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:18px">←</button><div><h1>Seleccionar Tracker</h1></div></div><div class="cnt" style="padding-top:14px"><div class="card" style="padding:16px">'
+  a.innerHTML='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:20px;min-width:38px">←</button><div><h1>Seleccionar Tracker</h1></div></div><div class="cnt" style="padding-top:14px"><div class="card" style="padding:16px">'
   +'<label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">PV</label>'
   +'<select class="sel" id="sp" style="width:100%;margin-bottom:12px" onchange="updSub()"><option value="">— Selecciona PV —</option>'+pvs.map(p=>'<option value="'+p+'">PV'+String(p).padStart(2,'0')+'</option>').join('')+'</select>'
   +'<label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Subcampo</label><select class="sel" id="ss" style="width:100%;margin-bottom:12px" onchange="updTL()"><option value="">— Primero selecciona PV —</option></select>'
@@ -754,7 +774,7 @@ function startInsp(){var code=document.getElementById('tp').dataset.code;if(code
 function rTracker(a){
   const code=V.tr,td=getTD(code),m=getMI(code),cfg=PCFG[m.type],c=countF(code);
   const ph=Object.values(td.photos||{}).reduce((x,arr)=>x+arr.length,0);
-  let h='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:18px">←</button><div><h1>'+code+'</h1><div class="sub">'+m.type+' · '+c.pct+'%</div></div><div class="hdr-r"><span class="sync-st"></span><span class="upload-st"></span>'+(isAdmin()?'<button class="btn-icon" onclick="toggleLock(\''+code+'\')" style="background:'+(td.locked?'var(--no)':'var(--sf2)')+';color:'+(td.locked?'#fff':'var(--td)')+';font-size:14px">'+(td.locked?'🔒':'🔓')+'</button>':'')+'<button class="btn-icon" onclick="V.exp=!V.exp;R()" style="background:var(--ac);color:var(--bg)">📤</button><div style="min-width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:'+(c.pct===100?'var(--ok)':'var(--sf2)')+';color:'+(c.pct===100?'#fff':'var(--ac)')+'">'+c.pct+'%</div></div></div>';
+  let h='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:20px;min-width:38px">←</button><div><h1>'+code+'</h1><div class="sub">'+m.type+' · '+c.pct+'%</div></div><div class="hdr-r"><span class="sync-st"></span><span class="upload-st"></span>'+(isAdmin()?'<button class="btn-icon" onclick="toggleLock(\''+code+'\')" style="background:'+(td.locked?'var(--no)':'var(--sf2)')+';color:'+(td.locked?'#fff':'var(--td)')+';font-size:14px">'+(td.locked?'🔒':'🔓')+'</button>':'')+'<button class="btn-icon" onclick="V.exp=!V.exp;R()" style="background:var(--ac);color:var(--bg)">📤</button><div style="min-width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:'+(c.pct===100?'var(--ok)':'var(--sf2)')+';color:'+(c.pct===100?'#fff':'var(--ac)')+'">'+c.pct+'%</div></div></div>';
   if(V.exp)h+='<div class="exp"><button class="exp-b" onclick="exportTr(\''+code+'\');V.exp=false;R()" style="background:#217346;color:#fff">📊 Exportar Excel</button></div>';
   h+='<div class="cnt" style="padding-top:6px">';
   if(td.locked)h+='<div style="padding:8px 12px;border-radius:10px;background:rgba(239,68,68,.15);border:1px solid var(--no);color:var(--no);font-size:12px;font-weight:700;text-align:center;margin-bottom:8px">🔒 TRACKER BLOQUEADO — Solo lectura</div>';
@@ -894,7 +914,7 @@ function rDash(a){
   const codes=Object.keys(APP.trackers).sort(),stats=codes.map(c=>({code:c,...countF(c),m:getMI(c)}));
   const done=stats.filter(s=>s.pct===100).length,avg=stats.length?Math.round(stats.reduce((x,s)=>x+s.pct,0)/stats.length):0;
   let nos=0,tph=0;codes.forEach(c=>{const td=APP.trackers[c];Object.values(td.cim||{}).forEach(v=>{if(v==='NO')nos++});Object.values(td.mont||{}).forEach(v=>{if(v==='NO')nos++});tph+=Object.values(td.photos||{}).reduce((x,arr)=>x+arr.length,0)});
-  let h='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:18px">←</button><div><h1>Dashboard</h1></div><div class="hdr-r"><button class="exp-b" onclick="exportDash()" style="height:36px;padding:0 14px;background:#217346;color:#fff;border-radius:10px;font-size:12px;width:auto;margin:0">📊</button></div></div>';
+  let h='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:20px;min-width:38px">←</button><div><h1>Dashboard</h1></div><div class="hdr-r"><button class="exp-b" onclick="exportDash()" style="height:36px;padding:0 14px;background:#217346;color:#fff;border-radius:10px;font-size:12px;width:auto;margin:0">📊</button></div></div>';
   h+='<div class="cnt" style="padding-top:14px"><div class="grid2"><div class="sc"><div class="sc-l">Avance</div><div class="sc-v" style="color:var(--ac)">'+avg+'%</div></div><div class="sc"><div class="sc-l">Completados</div><div class="sc-v" style="color:var(--ok)">'+done+'</div></div><div class="sc"><div class="sc-l">NOs</div><div class="sc-v" style="color:'+(nos?'var(--no)':'var(--ok)')+'">'+nos+'</div></div><div class="sc"><div class="sc-l">Fotos</div><div class="sc-v" style="color:var(--ac)">'+tph+'</div></div></div>';
   const byPV={};stats.forEach(s=>{const pv=s.m?.pv||0;if(!byPV[pv])byPV[pv]=[];byPV[pv].push(s)});
   Object.entries(byPV).sort((x,y)=>x[0]-y[0]).forEach(([pv,ps])=>{const dn=ps.filter(s=>s.pct===100).length;
@@ -920,7 +940,7 @@ function updXsub(){
 
 // CONFIG
 function rConfig(a){const sz=(JSON.stringify(APP).length/1024).toFixed(1);
-  a.innerHTML='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:18px">←</button><div><h1>Configuración</h1></div></div><div class="cnt" style="padding-top:14px"><div class="card" style="padding:14px"><label style="font-size:11px;color:var(--td);display:block;margin-bottom:4px">Nombre</label><input type="text" class="inp" value="'+(CFG.tecnico||'')+'" onchange="CFG.tecnico=this.value.trim();sc()" style="margin-bottom:12px"><label style="font-size:11px;color:var(--td);display:block;margin-bottom:4px">URL sincronización</label><input type="url" class="inp" value="'+(CFG.syncUrl||'')+'" readonly style="margin-bottom:10px;opacity:.6"><button onclick="syncAll();alert(\'Sincronizando \'+ Object.keys(APP.trackers).length+\' trackers...\')" style="width:100%;height:42px;border-radius:10px;background:#217346;color:#fff;font-size:13px;font-weight:700;margin-top:8px">☁️ Sincronizar TODO</button>'+(isAdmin()?'<div style="margin-top:12px"><label style="font-size:11px;color:var(--td);display:block;margin-bottom:4px">Importar Excel (checklists existentes)</label><input type="file" accept=".xlsx,.xls" onchange="if(this.files[0])importExcel(this.files[0])" style="font-size:12px;color:var(--td)"></div>':'')+'</div><div class="card" style="padding:14px;margin-top:8px"><div style="font-size:13px;font-weight:700;margin-bottom:6px">Datos: '+Object.keys(APP.trackers).length+' trackers · '+sz+' KB</div>'+(isAdmin()?'<button onclick="if(confirm(\'Borrar datos locales?\')){APP={trackers:{}};sv();R()}" style="width:100%;height:40px;border-radius:10px;background:transparent;color:var(--no);font-size:12px;border:1px solid var(--no);margin-top:6px">🗑️ Borrar datos locales</button>':'')+'</div></div>';
+  a.innerHTML='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:20px;min-width:38px">←</button><div><h1>Configuración</h1></div></div><div class="cnt" style="padding-top:14px"><div class="card" style="padding:14px"><label style="font-size:11px;color:var(--td);display:block;margin-bottom:4px">Nombre</label><input type="text" class="inp" value="'+(CFG.tecnico||'')+'" onchange="CFG.tecnico=this.value.trim();sc()" style="margin-bottom:12px"><label style="font-size:11px;color:var(--td);display:block;margin-bottom:4px">URL sincronización</label><input type="url" class="inp" value="'+(CFG.syncUrl||'')+'" readonly style="margin-bottom:10px;opacity:.6"><button onclick="syncAll();alert(\'Sincronizando \'+ Object.keys(APP.trackers).length+\' trackers...\')" style="width:100%;height:42px;border-radius:10px;background:#217346;color:#fff;font-size:13px;font-weight:700;margin-top:8px">☁️ Sincronizar TODO</button>'+(isAdmin()?'<div style="margin-top:12px"><label style="font-size:11px;color:var(--td);display:block;margin-bottom:4px">Importar Excel (checklists existentes)</label><input type="file" accept=".xlsx,.xls" onchange="if(this.files[0])importExcel(this.files[0])" style="font-size:12px;color:var(--td)"></div>':'')+'</div><div class="card" style="padding:14px;margin-top:8px"><div style="font-size:13px;font-weight:700;margin-bottom:6px">Datos: '+Object.keys(APP.trackers).length+' trackers · '+sz+' KB</div>'+(isAdmin()?'<button onclick="if(confirm(\'Borrar datos locales?\')){APP={trackers:{}};sv();R()}" style="width:100%;height:40px;border-radius:10px;background:transparent;color:var(--no);font-size:12px;border:1px solid var(--no);margin-top:6px">🗑️ Borrar datos locales</button>':'')+'</div></div>';
 }
 
 // INIT
