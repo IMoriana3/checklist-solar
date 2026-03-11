@@ -181,7 +181,7 @@ const MONT=[
 function toggleLock(code){var td=getTD(code);td.locked=!td.locked;sv();syncTracker(code);R()}
 function isLocked(code){var td=APP.trackers[code];return td&&td.locked}
 
-function isAdmin(){var n=(CFG.tecnico||'').toLowerCase();return n.indexOf('imoriana')>=0||n.indexOf('ohuarte')>=0}
+function isAdmin(){var n=(CFG.tecnico||'').toLowerCase();return n.indexOf('moriana')>=0||n.indexOf('huarte')>=0}
 
 function startGPS(){
   if(!navigator.geolocation)return;
@@ -720,9 +720,18 @@ function updTL(){
     else if(st==='wip')cls+=' tr-wip';
     else if(st==='bad')cls+=' tr-bad';
     var pct=APP.trackers[code]?countF(code).pct:0;
-    var icon=st==='ok'?'✅':st==='bad'?'⚠️':st==='wip'?'🔶':'';
-    h+='<button class="'+cls+'" data-code="'+code+'" onclick="selTr(this.dataset.code)"><div><span style="font-weight:700;font-size:18px;color:var(--tx);margin-right:8px">'+d.num+'</span> <span style="font-size:12px;color:var(--td)">'+d.type+' · '+d.n+' sop.</span></div>';
-    if(pct>0)h+='<span style="font-size:12px;font-weight:700">'+icon+' '+pct+'%</span>';
+    var locked=isLocked(code);
+    var stLabel=st==='ok'?'✅ OK':st==='bad'?'⚠️ SI/MAL':st==='wip'?'🔶 '+pct+'%':'';
+    var stColor=st==='ok'?'var(--ok)':st==='bad'?'var(--no)':st==='wip'?'#f59e0b':'var(--td)';
+    h+='<button class="'+cls+'" data-code="'+code+'" onclick="selTr(this.dataset.code)" style="flex-direction:column;align-items:stretch">';
+    h+='<div style="display:flex;justify-content:space-between;align-items:center">';
+    h+='<div><span style="font-weight:700;font-size:18px;color:var(--tx);margin-right:8px">'+d.num+'</span><span style="font-size:12px;color:var(--td)">'+d.type+'</span></div>';
+    h+='<div style="text-align:right">';
+    if(locked)h+='<span style="font-size:11px;margin-right:4px">🔒</span>';
+    if(isAdmin())h+='<button onclick="event.stopPropagation();toggleLock(\''+code+'\');updTL()" style="font-size:16px;padding:4px 10px;border-radius:8px;background:'+(locked?'var(--no)':'var(--sf2)')+';color:'+(locked?'#fff':'var(--td)')+';border:1px solid var(--bd);margin-left:8px">'+(locked?'🔒':'🔓')+'</button>';
+    if(stLabel)h+='<span style="font-size:13px;font-weight:700;color:'+stColor+'">'+stLabel+'</span>';
+    h+='</div></div>';
+    if(pct>0)h+='<div class="prog" style="margin-top:6px;height:4px"><div class="prog-b '+(st==='ok'?'done':'')+'" style="width:'+pct+'%"></div></div>';
     h+='</button>';
   });
   list.innerHTML='<div class="tr-list">'+h+'</div>';
