@@ -721,7 +721,7 @@ function updTL(){
     else if(st==='bad')cls+=' tr-bad';
     var pct=APP.trackers[code]?countF(code).pct:0;
     var icon=st==='ok'?'✅':st==='bad'?'⚠️':st==='wip'?'🔶':'';
-    h+='<button class="'+cls+'" data-code="'+code+'" onclick="selTr(this.dataset.code)"><div><span style="font-weight:700">'+d.num+'</span> <span style="font-size:11px;color:var(--td)">'+d.type+' · '+d.n+' sop.</span></div>';
+    h+='<button class="'+cls+'" data-code="'+code+'" onclick="selTr(this.dataset.code)"><div><span style="font-weight:700;font-size:18px;color:var(--tx);margin-right:8px">'+d.num+'</span> <span style="font-size:12px;color:var(--td)">'+d.type+' · '+d.n+' sop.</span></div>';
     if(pct>0)h+='<span style="font-size:12px;font-weight:700">'+icon+' '+pct+'%</span>';
     h+='</button>';
   });
