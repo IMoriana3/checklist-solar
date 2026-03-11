@@ -20,8 +20,8 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit}
 input,textarea,select{border:none;outline:none;font-family:inherit}
 .hide{display:none!important}
 .hdr{position:sticky;top:0;z-index:50;padding:12px 16px;display:flex;align-items:center;gap:12px;background:var(--bg);border-bottom:1px solid var(--bd)}
-.hdr h1{font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hdr .sub{font-size:11px;color:var(--td)}
+.hdr h1{font-size:22px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .sub{font-size:13px;color:var(--td)}
 .hdr-r{margin-left:auto;display:flex;gap:6px;align-items:center;flex-shrink:0}
 .btn-icon{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;background:var(--sf2)}
 .card{background:var(--sf);border-radius:12px;padding:12px;margin-bottom:8px}
@@ -39,9 +39,9 @@ input,textarea,select{border:none;outline:none;font-family:inherit}
 .okno button.s-ok{background:var(--ok);border-color:var(--ok);color:#fff}
 .okno button.s-no{background:var(--no);border-color:var(--no);color:#fff}
 .okno button.s-na{background:var(--na);border-color:var(--na);color:#fff}
-.tabs{display:flex;overflow-x:auto;gap:4px;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+.tabs{display:flex;gap:6px;padding-bottom:8px}
 .tabs::-webkit-scrollbar{display:none}
-.tab{flex-shrink:0;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:600;white-space:nowrap;background:var(--sf2);color:var(--td)}
+.tab{flex:1;min-width:0;padding:12px 14px;border-radius:12px;font-size:15px;font-weight:700;white-space:nowrap;text-align:center;background:var(--sf2);color:var(--td)}
 .tab.on{background:var(--ac);color:var(--bg)}
 .pils{display:flex;overflow-x:auto;gap:6px;padding:10px 0;-webkit-overflow-scrolling:touch}
 .pils::-webkit-scrollbar{display:none}
@@ -313,8 +313,10 @@ function pullTracker(code,callback){
   var s=document.createElement('script');
   s.src=url;
   s.onload=function(){try{document.head.removeChild(s)}catch(e){}};
-  s.onerror=function(){try{document.head.removeChild(s)}catch(e){};if(callback)callback();};
+  s.onerror=function(){try{document.head.removeChild(s)}catch(e){}delete window[cbName];if(callback)callback();R()};
   document.head.appendChild(s);
+  // Timeout: if JSONP callback never fires, clean up after 15s
+  setTimeout(function(){if(window[cbName]){delete window[cbName];try{document.head.removeChild(s)}catch(e){}if(callback)callback();R()}},15000);
 }
 
 function syncTracker(code){
@@ -415,12 +417,13 @@ function initDef(code){
 function countF(code){
   const m=getMI(code);if(!m)return{cimF:0,cimT:0,montF:0,montT:0,pct:0};
   const cfg=PCFG[m.type],filas=cfg.conducida?['motor','conducida']:['motor'];
-  let cimT=0,cimF=0;const td=getTD(code);
-  filas.forEach(f=>{const pils=cfg[f];cimT+=pils.length*(MED.length+COMP.length);
-    pils.forEach((_,i)=>{const px=f==='motor'?'fm':'fc';const mpi=getMPi(m.type);
-      [...MED,...COMP].forEach(field=>{
-        if(field.isTramo&&i===mpi){cimT--;return}
-        if(td.cim[px+'_'+i+'_'+field.id]!=null)cimF++});
+  const td=getTD(code),mpi=getMPi(m.type),allFields=[...MED,...COMP],nf=allFields.length;
+  let cimT=0,cimF=0;
+  filas.forEach(f=>{const pils=cfg[f],px=f==='motor'?'fm':'fc';cimT+=pils.length*nf;
+    pils.forEach((_,i)=>{
+      for(let fi=0;fi<nf;fi++){const field=allFields[fi];
+        if(field.isTramo&&i===mpi){cimT--;continue}
+        if(td.cim[px+'_'+i+'_'+field.id]!=null)cimF++}
     });
   });
   const montT=MONT.reduce((a,s)=>a+s.items.length,0);
@@ -531,7 +534,7 @@ function parseSection(td,rows,startRow,pils,px,type){
   for(var i=0;i<pils.length;i++){
     for(var c=1;c<(hRow.length||20);c++){
       var h=String(hRow[c]||'').trim();
-      if(h===pils[i]||(h.indexOf(pils[i])>=0&&h.length<12)){pilarCols.push(c);break}
+      if(h===pils[i]){pilarCols.push(c);break}
     }
   }
   if(pilarCols.length!==pils.length)return;
@@ -675,7 +678,7 @@ function rSelect(a){
   +'<label style="font-size:12px;color:var(--td);display:block;margin-bottom:6px">Nº Tracker</label>'
   +'<div id="st" style="margin-bottom:12px"><div style="color:var(--td);font-size:13px;padding:8px">— Primero selecciona PV —</div></div>'
   +'<div id="tp"></div><button id="bs" class="hide" onclick="startInsp()" style="width:100%;height:46px;border-radius:12px;background:var(--ac);color:var(--bg);font-size:15px;font-weight:700;margin-top:10px">Comenzar Inspección</button></div></div>';
-  if(_restorePv){setTimeout(function(){var sp=document.getElementById('sp');if(sp){sp.value=_restorePv;updSub();if(_restoreSub){setTimeout(function(){var ss=document.getElementById('ss');if(ss){ss.value=_restoreSub;updTL()}},50)}}},50)}
+  if(_restorePv){var sp=document.getElementById('sp');if(sp){sp.value=_restorePv;updSub();if(_restoreSub){var ss=document.getElementById('ss');if(ss){ss.value=_restoreSub;updTL()}}}}
 }
 function trCimStatus(code){
   if(!APP.trackers[code])return'none';
@@ -746,7 +749,7 @@ function updTL(){var subSel2=document.getElementById('ss');V.selSub=subSel2?pars
     var locked=isLocked(code);
     var stLabel=st==='ok'?'✅ OK':st==='bad'?'⚠️ SI/MAL':st==='wip'?'🔶 '+pct+'%':'';
     var stColor=st==='ok'?'var(--ok)':st==='bad'?'var(--no)':st==='wip'?'#f59e0b':'var(--td)';
-    h+='<button class="'+cls+'" data-code="'+code+'" onclick="selTr(this.dataset.code)" style="flex-direction:column;align-items:stretch">';
+    h+='<button class="'+cls+'" data-code="'+code+'" onclick="openTr(this.dataset.code)" style="flex-direction:column;align-items:stretch">';
     h+='<div style="display:flex;justify-content:space-between;align-items:center">';
     h+='<div><span style="font-weight:700;font-size:18px;color:var(--tx);margin-right:8px">'+d.num+'</span><span style="font-size:12px;color:var(--td)">'+d.type+'</span></div>';
     h+='<div style="text-align:right">';
