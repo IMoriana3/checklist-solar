@@ -603,6 +603,80 @@ test('Verticalidad boundary values', () => {
   eq(vertEO.tol[1], 92);
 });
 
+console.log('\n📥 EXCEL IMPORT (parseSection)');
+console.log('─'.repeat(50));
+
+test('parseSection reads altura from correct Excel row (conducida)', () => {
+  // Use conducida pilars which have unique names: 2N, 1N, MP-FC, 1S, 2S
+  APP.trackers = {};
+  const td = getTD('TR04.113'); // bifila_corto
+  const m = getMI('TR04.113');
+  const cfg = PCFG[m.type];
+  const rows = [];
+  rows[0] = ['PILARES FILA CONDUCIDA'];
+  rows[1] = ['MEDICIONES', 'Unidad', ...cfg.conducida];
+  rows[2] = ['Altura (mm)', 'mm', 1150, 1200, 1180, 1190, 1175];
+  for (let i = 3; i <= 20; i++) rows[i] = [];
+  parseSection(td, rows, 0, cfg.conducida, 'fc', m.type);
+  eq(td.cim['fc_0_altura'], 1150, 'Pilar 0 altura');
+  eq(td.cim['fc_1_altura'], 1200, 'Pilar 1 altura');
+  eq(td.cim['fc_2_altura'], 1180, 'Pilar 2 (MP-FC) altura');
+  eq(td.cim['fc_3_altura'], 1190, 'Pilar 3 altura');
+  eq(td.cim['fc_4_altura'], 1175, 'Pilar 4 altura');
+});
+
+test('parseSection reads vert_ns from excelOffset 3', () => {
+  APP.trackers = {};
+  const td = getTD('TR04.113');
+  const m = getMI('TR04.113');
+  const cfg = PCFG[m.type];
+  const rows = [];
+  rows[0] = ['PILARES FILA CONDUCIDA'];
+  rows[1] = ['MEDICIONES', 'Unidad', ...cfg.conducida];
+  rows[2] = ['Altura', 'mm', 1150, 1200, 1180, 1190, 1175];
+  rows[3] = ['Vert N-S', 'grados', 90, 91, 89, 92, 88];
+  for (let i = 4; i <= 20; i++) rows[i] = [];
+  parseSection(td, rows, 0, cfg.conducida, 'fc', m.type);
+  eq(td.cim['fc_0_vert_ns'], 90, 'Pilar 0 vert_ns');
+  eq(td.cim['fc_4_vert_ns'], 88, 'Pilar 4 vert_ns');
+});
+
+test('parseSection reads dist_ns_tramo from excelOffset 8', () => {
+  APP.trackers = {};
+  const td = getTD('TR04.113');
+  const m = getMI('TR04.113');
+  const cfg = PCFG[m.type];
+  const rows = [];
+  rows[0] = ['PILARES FILA CONDUCIDA'];
+  rows[1] = ['MEDICIONES', 'Unidad', ...cfg.conducida];
+  rows[2] = ['Altura', 'mm', 1150, 1200, 1180, 1190, 1175];
+  for (let i = 3; i <= 7; i++) rows[i] = ['', '', 0, 0, 0, 0, 0];
+  rows[8] = ['Dist N-S tramo', 'mm', 6700, 6710, '', 6690, 6705];
+  for (let i = 9; i <= 20; i++) rows[i] = [];
+  parseSection(td, rows, 0, cfg.conducida, 'fc', m.type);
+  eq(td.cim['fc_0_dist_ns_tramo'], 6700, 'Pilar 0 dist_ns_tramo');
+  eq(td.cim['fc_3_dist_ns_tramo'], 6690, 'Pilar 3 dist_ns_tramo');
+  eq(td.cim['fc_2_dist_ns_tramo'], undefined, 'Empty cell should not be imported');
+});
+
+test('parseSection skips non-numeric strings for numeric fields', () => {
+  APP.trackers = {};
+  const td = getTD('TR04.113');
+  const m = getMI('TR04.113');
+  const cfg = PCFG[m.type];
+  const rows = [];
+  rows[0] = ['PILARES FILA CONDUCIDA'];
+  rows[1] = ['MEDICIONES', 'Unidad', ...cfg.conducida];
+  rows[2] = ['Altura', 'mm', 'abc', 1200, null, '', 1175];
+  for (let i = 3; i <= 20; i++) rows[i] = [];
+  parseSection(td, rows, 0, cfg.conducida, 'fc', m.type);
+  eq(td.cim['fc_0_altura'], undefined, 'Non-numeric string should be skipped');
+  eq(td.cim['fc_1_altura'], 1200, 'Valid number should be imported');
+  eq(td.cim['fc_2_altura'], undefined, 'Null should be skipped');
+  eq(td.cim['fc_3_altura'], undefined, 'Empty string should be skipped');
+  eq(td.cim['fc_4_altura'], 1175, 'Valid number should be imported');
+});
+
 // ============================================================
 // RESULTS
 // ============================================================
