@@ -40,6 +40,7 @@ input,textarea,select{border:none;outline:none;font-family:inherit}
 .okno button.s-no{background:var(--no);border-color:var(--no);color:#fff}
 .okno button.s-na{background:var(--na);border-color:var(--na);color:#fff}
 .tabs{display:flex;overflow-x:auto;gap:4px;padding-bottom:8px;-webkit-overflow-scrolling:touch}
+.tabs-wrap{display:flex;flex-wrap:wrap;gap:4px;padding-bottom:8px}
 .tabs::-webkit-scrollbar{display:none}
 .tab{flex-shrink:0;padding:8px 14px;border-radius:10px;font-size:12px;font-weight:600;white-space:nowrap;background:var(--sf2);color:var(--td)}
 .tab.on{background:var(--ac);color:var(--bg)}
@@ -887,7 +888,7 @@ function setCV(code,key,val){if(isLocked(code)){return}const td=getTD(code);
 function rMont(code,td){
   if(!V.ms)V.ms=MONT_GROUPS[0].id;
   // Group tabs
-  let h='<div class="tabs">';
+  let h='<div class="tabs-wrap">';
   MONT_GROUPS.forEach(g=>{
     let gFl=0,gTot=0;
     g.secs.forEach(s=>{gTot+=s.items.length;gFl+=s.items.filter(i=>td.mont[i.id]!=null).length});
