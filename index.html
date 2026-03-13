@@ -422,6 +422,7 @@ function initDef(code){
       });
     });
   });
+  MONT.forEach(s=>{s.items.forEach(it=>{if(td.mont[it.id]==null)td.mont[it.id]='SI'})});
   sv();
 }
 
