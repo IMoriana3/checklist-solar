@@ -368,7 +368,7 @@ function doSync(payload){
 function uploadPhoto(code, pilar, fila, photoData){
   if(!CFG.syncUrl)return;
   var b64=photoData.replace(/^data:image\/\w+;base64,/,'');
-  var CS=4000, chunks=[];
+  var CS=7000, chunks=[];
   for(var i=0;i<b64.length;i+=CS)chunks.push(b64.substring(i,i+CS));
   var pid=code+'_'+Date.now();
   var fn=code+'_'+fila+'_'+pilar+'_'+new Date().toISOString().slice(0,19).replace(/[:.]/g,'-');
@@ -932,7 +932,7 @@ function rMont(code,td){
     sph.forEach((_,i)=>h+='<div class="ph-th"><img src="'+sph[i].data+'"><button class="ph-del" onclick="rmPh(\''+code+'\',\''+pk+'\','+i+')">×</button></div>');
     h+='<button class="ph-add" onclick="tkPh(\''+code+'\',\''+pk+'\')"><span style="font-size:18px">📷</span><span>Foto</span></button></div></div>';
     sec.items.forEach(it=>{const val=td.mont[it.id];
-      h+='<div class="card card-row"><div class="card-label">'+it.label+'</div>'+rOkNo(val,"setMV(\'"+code+"\',\'"+it.id+"\',\'{V}\')",true)+'</div>';
+      h+='<div class="card card-row"><div class="card-label">'+it.label+'</div>'+rOkNo(val,"setMV('"+code+"','"+it.id+"','{V}')",true)+'</div>';
     });
     h+='</div>';
   });
