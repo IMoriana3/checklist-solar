@@ -187,6 +187,10 @@ const MONT_GROUPS=[
     {id:'tp',title:'Tapón Plástico',items:[{id:'tp_ok',label:'Tapones con tornillos autorroscantes'}]}
   ]}
 ];
+// Confirmation group
+MONT_GROUPS.push({id:'g6',title:'✅ Confirmación',secs:[
+  {id:'tok',title:'Confirmación final',items:[{id:'tok_ok',label:'Tracker revisado y OK'}]}
+]});
 // Flat list for backward compatibility (countF, export, etc.)
 const MONT=[];MONT_GROUPS.forEach(function(g){g.secs.forEach(function(s){MONT.push(s)})});
 
@@ -422,7 +426,7 @@ function initDef(code){
       });
     });
   });
-  MONT.forEach(s=>{s.items.forEach(it=>{if(td.mont[it.id]==null)td.mont[it.id]='SI'})});
+  MONT.forEach(s=>{s.items.forEach(it=>{if(it.id!=='tok_ok'&&td.mont[it.id]==null)td.mont[it.id]='SI'})});
   sv();
 }
 
