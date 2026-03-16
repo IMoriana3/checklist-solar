@@ -774,7 +774,7 @@ function drawPlano(){
     var d=t.d,code=t.code;
     var isLargo=d.type.indexOf('largo')>=0;
     var rectH=(isLargo?LARGO_H:CORTO_H)*scale;
-    var rectW=Math.max(W*scale,3);
+    var rectW=Math.max(W*scale,8);
     var cx=(d.mx-minX)*scale;
     var cy=(maxY-d.my)*scale;
     var rx=cx-rectW/2, ry=cy-rectH/2;
@@ -857,19 +857,37 @@ function initPlanoEvents(){
   var cv=document.getElementById('planoCanvas');
   if(!cv)return;
   
-  cv.addEventListener('click',function(e){
+  function handleTap(clientX,clientY){
     var rect=cv.getBoundingClientRect();
     var scaleX=cv.width/rect.width;
-    var px=(e.clientX-rect.left)*scaleX;
-    var py=(e.clientY-rect.top)*scaleX;
+    var scaleY=cv.height/rect.height;
+    var px=(clientX-rect.left)*scaleX;
+    var py=(clientY-rect.top)*scaleY;
     
-    var hit=null;
+    // Find closest tracker within 20px
+    var best=null,bestDist=20;
     (window._planoRects||[]).forEach(function(r){
-      var ex=6;
-      if(px>=r.x-ex&&px<=r.x+r.w+ex&&py>=r.y-ex&&py<=r.y+r.h+ex)hit=r;
+      var cx=r.x+r.w/2, cy=r.y+r.h/2;
+      var dx=px-cx, dy=py-cy;
+      // Check if inside expanded rect first
+      var ex=15;
+      if(px>=r.x-ex&&px<=r.x+r.w+ex&&py>=r.y-ex&&py<=r.y+r.h+ex){
+        var dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<bestDist||!best){best=r;bestDist=dist}
+      }
     });
     
-    if(hit){openTr(hit.code)}
+    if(best){openTr(best.code)}
+  }
+  
+  cv.addEventListener('click',function(e){
+    handleTap(e.clientX,e.clientY);
+  });
+  
+  cv.addEventListener('touchend',function(e){
+    e.preventDefault();
+    var t=e.changedTouches[0];
+    if(t)handleTap(t.clientX,t.clientY);
   });
 }
 
