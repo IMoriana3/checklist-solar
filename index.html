@@ -303,8 +303,14 @@ function pullResumen(pv,sub){
   var cbName='_cbr_'+Date.now();
   window[cbName]=function(data){
     delete window[cbName];
-    if(!data||!data.trackers){console.log('pullResumen: no data');return}
+    if(!data||!data.trackers){
+      var dbgEl=document.getElementById('planoDbg');
+      if(dbgEl)dbgEl.textContent='⚠️ Sin datos de la nube';
+      return;
+    }
     console.log('pullResumen: got',Object.keys(data.trackers).length,'trackers');
+    var dbgEl=document.getElementById('planoDbg');
+    if(dbgEl)dbgEl.textContent='☁️ '+Object.keys(data.trackers).length+' trackers cargados';
     Object.keys(data.trackers).forEach(function(code){
       var r=data.trackers[code];
       var td=getTD(code);
@@ -746,6 +752,7 @@ function rPlano(pv,sub){
   var h='<div style="margin-bottom:8px">';
   h+='<canvas id="planoCanvas" width="'+cW+'" height="'+cH+'" style="width:100%;border-radius:10px;background:#1a1f2e;border:1px solid var(--bd);touch-action:manipulation"></canvas>';
   h+='<div id="planoTip" style="display:none;position:absolute;background:var(--sf);border:1px solid var(--ac);border-radius:8px;padding:8px 12px;font-size:12px;z-index:50;pointer-events:none"></div>';
+  h+='<div id="planoDbg" style="font-size:10px;color:var(--td);text-align:center;margin-top:4px">Cargando datos...</div>';
   h+='</div>';
   return h;
 }
