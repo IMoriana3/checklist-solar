@@ -298,6 +298,44 @@ function pullLocks(){
   document.head.appendChild(s);
 }
 
+function pullResumen(pv,sub){
+  if(!CFG.syncUrl||!pv)return;
+  var cbName='_cbr_'+Date.now();
+  window[cbName]=function(data){
+    delete window[cbName];
+    if(!data||!data.trackers)return;
+    Object.keys(data.trackers).forEach(function(code){
+      var r=data.trackers[code];
+      var td=getTD(code);
+      td.locked=r.lk;
+      if(r.te)td.lastTec=r.te;
+      if(r.cp)td.cloudPct=r.cp;
+      if(r.st)td.cloudSt=r.st;
+    });
+    sv();
+    // Update list items without resetting dropdowns
+    var btns=document.querySelectorAll('.tr-item');
+    btns.forEach(function(btn){
+      var code=btn.dataset.code;if(!code)return;
+      var td=APP.trackers[code];if(!td)return;
+      var stEl=btn.querySelector('.tr-cloud-st');
+      if(stEl&&td.cloudPct){
+        stEl.textContent=td.cloudPct==='SI'?'✅ OK':td.cloudPct==='PDTE'?'🔶 PDTE':'';
+        stEl.style.color=td.cloudPct==='SI'?'var(--ok)':'#f59e0b';
+      }
+      var tecEl=btn.querySelector('.tr-cloud-tec');
+      if(tecEl&&td.lastTec)tecEl.textContent='👤 '+td.lastTec;
+      var lkEl=btn.querySelector('.tr-cloud-lk');
+      if(lkEl){lkEl.style.display=td.locked?'inline':'none'}
+    });
+  };
+  var url=CFG.syncUrl+'?d='+encodeURIComponent(JSON.stringify({a:'gr',pv:pv,sub:sub}))+'&cb='+cbName;
+  var s=document.createElement('script');
+  s.src=url;s.onload=function(){try{document.head.removeChild(s)}catch(e){}};
+  s.onerror=function(){try{document.head.removeChild(s)}catch(e){}};
+  document.head.appendChild(s);
+}
+
 function pullTracker(code,callback){
   if(!CFG.syncUrl)return callback&&callback();
   var p={a:'g',t:code};
@@ -663,6 +701,165 @@ function goBack(code){
   }
 }
 
+function rPlano(pv,sub){
+  // Gather trackers for this PV/sub
+  var trs=[];
+  Object.keys(MASTER_DATA).forEach(function(code){
+    var d=MASTER_DATA[code];
+    if(d.pv!==pv)return;
+    if(sub>0&&d.sub!==sub)return;
+    if(sub===0&&d.sub>0)return;
+    trs.push({code:code,d:d});
+  });
+  if(trs.length===0)return '';
+  
+  // Bounding box in UTM
+  var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  var LARGO_H=56,CORTO_H=28,W=2.5;
+  trs.forEach(function(t){
+    var h=(t.d.type.indexOf('largo')>=0?LARGO_H:CORTO_H)/2;
+    if(t.d.mx-W/2<minX)minX=t.d.mx-W/2;
+    if(t.d.mx+W/2>maxX)maxX=t.d.mx+W/2;
+    if(t.d.my-h<minY)minY=t.d.my-h;
+    if(t.d.my+h>maxY)maxY=t.d.my+h;
+  });
+  
+  var pad=15; // meters padding
+  minX-=pad;maxX+=pad;minY-=pad;maxY+=pad;
+  var spanX=maxX-minX,spanY=maxY-minY;
+  
+  // Canvas size
+  var cW=Math.min(window.innerWidth-32,800);
+  var scale=cW/spanX;
+  var cH=Math.round(spanY*scale);
+  if(cH>cW*1.8){scale=cW*1.8/spanY;cH=Math.round(spanY*scale);cW=Math.round(spanX*scale)}
+  if(cH<200)cH=200;
+  
+  // Store for interaction
+  window._planoTrs=trs;
+  window._planoMinX=minX;window._planoMaxY=maxY;
+  window._planoScale=scale;window._planoCW=cW;window._planoCH=cH;
+  
+  var h='<div style="margin-bottom:8px">';
+  h+='<canvas id="planoCanvas" width="'+cW+'" height="'+cH+'" style="width:100%;border-radius:10px;background:#1a1f2e;border:1px solid var(--bd);touch-action:manipulation"></canvas>';
+  h+='<div id="planoTip" style="display:none;position:absolute;background:var(--sf);border:1px solid var(--ac);border-radius:8px;padding:8px 12px;font-size:12px;z-index:50;pointer-events:none"></div>';
+  h+='</div>';
+  return h;
+}
+
+function drawPlano(){
+  var cv=document.getElementById('planoCanvas');
+  if(!cv||!window._planoTrs)return;
+  var ctx=cv.getContext('2d');
+  var trs=window._planoTrs;
+  var minX=window._planoMinX,maxY=window._planoMaxY,scale=window._planoScale;
+  var LARGO_H=56,CORTO_H=28,W=2.5;
+  
+  ctx.clearRect(0,0,cv.width,cv.height);
+  
+  // Store rects for hit testing
+  window._planoRects=[];
+  
+  trs.forEach(function(t){
+    var d=t.d,code=t.code;
+    var isLargo=d.type.indexOf('largo')>=0;
+    var rectH=(isLargo?LARGO_H:CORTO_H)*scale;
+    var rectW=Math.max(W*scale,3);
+    var cx=(d.mx-minX)*scale;
+    var cy=(maxY-d.my)*scale;
+    var rx=cx-rectW/2, ry=cy-rectH/2;
+    
+    // Color based on cimentaciones status
+    var td=APP.trackers[code];
+    var color='#3b82f6'; // blue: not reviewed
+    if(td){
+      var ct=countF(code);
+      if(ct.cimF>=ct.cimT&&ct.cimT>0){
+        // All filled - check status
+        var st=calcStatus(code);
+        var hasBad=(st.m_alt==='SI/MAL'||st.m_dist==='SI/MAL'||st.m_vert==='SI/MAL'||st.m_rest==='SI/MAL'||st.c_alt==='SI/MAL'||st.c_dist==='SI/MAL'||st.c_vert==='SI/MAL'||st.c_rest==='SI/MAL');
+        color=hasBad?'#ef4444':'#22c55e'; // red or green
+      }else if(ct.cimF>0){
+        color='#f59e0b'; // yellow: in progress
+      }
+    }
+    // Check cloud data too
+    if(td&&td.cloudPct==='SI'&&color==='#3b82f6')color='#22c55e';
+    if(td&&td.cloudPct==='PDTE'&&color==='#3b82f6')color='#f59e0b';
+    
+    ctx.fillStyle=color;
+    ctx.fillRect(rx,ry,rectW,rectH);
+    ctx.strokeStyle='rgba(255,255,255,0.3)';
+    ctx.lineWidth=0.5;
+    ctx.strokeRect(rx,ry,rectW,rectH);
+    
+    // Tracker number label
+    var num=String(d.num);
+    var fontSize=Math.max(Math.min(rectW*1.8,rectH*0.12,11),6);
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillStyle='#fff';
+    ctx.font='bold '+fontSize+'px sans-serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(num,0,0);
+    ctx.restore();
+    
+    window._planoRects.push({code:code,x:rx,y:ry,w:rectW,h:rectH,d:d});
+  });
+  
+  // Legend
+  var lgY=cv.height-30;
+  var legends=[{c:'#22c55e',l:'OK'},{c:'#ef4444',l:'SI/MAL'},{c:'#f59e0b',l:'En curso'},{c:'#3b82f6',l:'Sin revisar'}];
+  ctx.font='bold 10px sans-serif';
+  var lgX=8;
+  legends.forEach(function(lg){
+    ctx.fillStyle=lg.c;
+    ctx.fillRect(lgX,lgY,12,12);
+    ctx.fillStyle='#ccc';
+    ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText(lg.l,lgX+16,lgY+6);
+    lgX+=ctx.measureText(lg.l).width+30;
+  });
+}
+
+function initPlanoEvents(){
+  var cv=document.getElementById('planoCanvas');
+  if(!cv)return;
+  
+  cv.addEventListener('click',function(e){
+    var rect=cv.getBoundingClientRect();
+    var scaleX=cv.width/rect.width;
+    var px=(e.clientX-rect.left)*scaleX;
+    var py=(e.clientY-rect.top)*scaleX;
+    
+    var hit=null;
+    (window._planoRects||[]).forEach(function(r){
+      // Expand hit area a bit
+      var ex=4;
+      if(px>=r.x-ex&&px<=r.x+r.w+ex&&py>=r.y-ex&&py<=r.y+r.h+ex)hit=r;
+    });
+    
+    if(hit){
+      var tip=document.getElementById('planoTip');
+      if(tip){
+        tip.style.display='block';
+        tip.innerHTML='<div style="font-weight:700;font-size:14px">'+hit.code+'</div>'
+          +'<div style="font-size:11px;color:var(--td)">PV'+hit.d.pv+(hit.d.sub>0?' · Sub '+hit.d.sub:'')+'</div>'
+          +'<div style="font-size:11px;color:var(--td)">'+hit.d.type+'</div>'
+          +'<button onclick="selTr(\''+hit.code+'\');document.getElementById(\'planoTip\').style.display=\'none\'" style="margin-top:6px;width:100%;padding:6px;border-radius:6px;background:var(--ac);color:var(--bg);font-size:12px;font-weight:700;border:none">Abrir tracker</button>';
+        var tipRect=tip.getBoundingClientRect();
+        tip.style.left=Math.min(e.clientX-40,window.innerWidth-tipRect.width-10)+'px';
+        tip.style.top=Math.max(e.clientY-100,10)+'px';
+      }
+    }else{
+      var tip=document.getElementById('planoTip');
+      if(tip)tip.style.display='none';
+    }
+  });
+}
+
 function R(){({setup:rSetup,home:rHome,select:rSelect,tracker:rTracker,dashboard:rDash,config:rConfig})[V.screen](document.getElementById('app'));setTimeout(()=>showSync(''),50)}
 
 // SETUP
@@ -797,7 +994,10 @@ function updTL(){var subSel2=document.getElementById('ss');V.selSub=subSel2?pars
     if(pct>0)h+='<div class="prog" style="margin-top:6px;height:4px"><div class="prog-b '+(st==='ok'?'done':'')+'" style="width:'+pct+'%"></div></div>';
     h+='</button>';
   });
-  list.innerHTML='<div class="tr-list">'+h+'</div>';
+  var planoHtml=rPlano(parseInt(document.getElementById('sp').value)||0,parseInt((document.getElementById('ss')||{}).value)||0);
+  list.innerHTML=planoHtml+'<div class="tr-list">'+h+'</div>';
+  setTimeout(function(){drawPlano();initPlanoEvents()},50);
+  pullResumen(V.selPv,V.selSub);
 }
 function selTr(code){
   document.getElementById('tp').dataset.code=code;

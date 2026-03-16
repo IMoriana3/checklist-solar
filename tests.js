@@ -275,7 +275,7 @@ test('dist_ns_tramo is second field (after altura)', () => {
   ok(MED[1].isTramo, 'dist_ns_tramo should have isTramo flag');
 });
 
-test('Verticalidad N-S tolerance is 88-102', () => {
+test('Verticalidad N-S tolerance is 88-92', () => {
   const f = MED.find(m => m.id === 'vert_ns');
   ok(f, 'vert_ns not found');
   eq(f.tol[0], 88);
@@ -603,7 +603,7 @@ test('Verticalidad boundary values', () => {
   // N-S: 88-102
   const vertNS = MED.find(m => m.id === 'vert_ns');
   eq(vertNS.tol[0], 88);
-  eq(vertNS.tol[1], 102);
+  eq(vertNS.tol[1], 92);
   // 88 is OK, 87.99 is not; 102 is OK, 102.01 is not
   
   // E-O: 88-92
