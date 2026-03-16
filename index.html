@@ -303,7 +303,8 @@ function pullResumen(pv,sub){
   var cbName='_cbr_'+Date.now();
   window[cbName]=function(data){
     delete window[cbName];
-    if(!data||!data.trackers)return;
+    if(!data||!data.trackers){console.log('pullResumen: no data');return}
+    console.log('pullResumen: got',Object.keys(data.trackers).length,'trackers');
     Object.keys(data.trackers).forEach(function(code){
       var r=data.trackers[code];
       var td=getTD(code);
@@ -313,6 +314,8 @@ function pullResumen(pv,sub){
       if(r.st)td.cloudSt=r.st;
     });
     sv();
+    // Redraw plano with new data
+    drawPlano();
     // Update list items without resetting dropdowns
     var btns=document.querySelectorAll('.tr-item');
     btns.forEach(function(btn){
@@ -773,19 +776,38 @@ function drawPlano(){
     var td=APP.trackers[code];
     var color='#3b82f6'; // blue: not reviewed
     if(td){
+      // 1. Check local data first
       var ct=countF(code);
       if(ct.cimF>=ct.cimT&&ct.cimT>0){
-        // All filled - check status
         var st=calcStatus(code);
         var hasBad=(st.m_alt==='SI/MAL'||st.m_dist==='SI/MAL'||st.m_vert==='SI/MAL'||st.m_rest==='SI/MAL'||st.c_alt==='SI/MAL'||st.c_dist==='SI/MAL'||st.c_vert==='SI/MAL'||st.c_rest==='SI/MAL');
-        color=hasBad?'#ef4444':'#22c55e'; // red or green
+        color=hasBad?'#ef4444':'#22c55e';
       }else if(ct.cimF>0){
-        color='#f59e0b'; // yellow: in progress
+        color='#f59e0b';
+      }
+      // 2. If still blue, check cloud data
+      if(color==='#3b82f6'){
+        var cs=td.cloudSt;
+        if(cs){
+          var hasSIMAL=false,hasSI=false;
+          ['m_alt','m_dist','m_vert','m_rest','c_alt','c_dist','c_vert','c_rest'].forEach(function(k){
+            var v=String(cs[k]||'');
+            if(v==='SI/MAL')hasSIMAL=true;
+            if(v==='SI'||v==='PDTE'||v==='SI/MAL')hasSI=true;
+          });
+          if(hasSIMAL)color='#ef4444';
+          else if(hasSI)color='#f59e0b';
+        }
+        // Also check cloudPct
+        var cp=String(td.cloudPct||'');
+        if(cp==='SI'&&color==='#3b82f6')color='#22c55e';
+        else if(cp==='SI'&&color==='#f59e0b'){
+          // All status filled + checklist SI = complete, check for bad
+          if(!td.cloudSt||!hasSIMAL)color='#22c55e';
+        }
+        else if(cp==='PDTE'&&color==='#3b82f6')color='#f59e0b';
       }
     }
-    // Check cloud data too
-    if(td&&td.cloudPct==='SI'&&color==='#3b82f6')color='#22c55e';
-    if(td&&td.cloudPct==='PDTE'&&color==='#3b82f6')color='#f59e0b';
     
     ctx.fillStyle=color;
     ctx.fillRect(rx,ry,rectW,rectH);
