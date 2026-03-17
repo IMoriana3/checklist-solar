@@ -357,10 +357,11 @@ function pullTracker(code,callback){
       Object.keys(data.fields).forEach(function(key){
         var remote=data.fields[key];
         if(remote.v!=null&&remote.v!==''){
-          // Remote wins if local is empty, or if remote is newer
+          var rv=isNaN(remote.v)?String(remote.v):parseFloat(remote.v);
           var localVal=td.cim[key];
-          if(localVal==null||localVal===''){
-            td.cim[key]=isNaN(remote.v)?remote.v:parseFloat(remote.v);
+          // Remote always overwrites defaults and empty values
+          if(localVal==null||localVal===''||localVal!==rv){
+            td.cim[key]=rv;
             changed=true;
           }
         }
@@ -1072,10 +1073,6 @@ function rCim(code,td,m,cfg){
   if(cfg.conducida){h+='<div class="tabs">';filas.forEach(f=>h+='<button class="tab '+(V.fila===f?'on':'')+'" onclick="V.fila=\''+f+'\';V.pi=0;R()">'+(f==='motor'?'Fila Motor':'Fila Conducida')+'</button>');h+='</div>'}
   const pils=cfg[V.fila]||cfg.motor,px=V.fila==='motor'?'fm':'fc',pi=V.pi,mpI=getMPi(m.type);
   h+='<div class="pils">';
-  // Fields where SI means defect found (bad)
-  var siBad=['golpes','entalladura','pliegue','cabezas','corte','mecanizados','oxidacion','socavones','zanjas'];
-  // Fields where NO means not done/not compliant (bad)
-  var noBad=['galvanizado','orientacion','perfil','cimentacion'];
   pils.forEach((p,i)=>{
     let fl=0,hasBad=false;
     [...MED,...COMP].forEach(f=>{
@@ -1084,8 +1081,7 @@ function rCim(code,td,m,cfg){
       if(val!=null){
         fl++;
         if(f.tol&&typeof val==='number'&&(val<f.tol[0]||val>f.tol[1]))hasBad=true;
-        if(val==='SI'&&siBad.indexOf(f.id)>=0)hasBad=true;
-        if(val==='NO'&&noBad.indexOf(f.id)>=0)hasBad=true;
+        if(f.def!=null&&val!==f.def)hasBad=true;
       }
     });
     // Check accumulated distance tolerance
