@@ -91,7 +91,7 @@ let APP=ld(SK)||{trackers:{}}, CFG=ld(CK)||{syncUrl:'',tecnico:''};
 const SYNC_URL='https://script.google.com/macros/s/AKfycbxNbWR8rqrsugUEfJClSfTCtJVI9Gze5j9l6330Iw81v_fuTApAaAZkwt3GEjqHIBQ6/exec';
 CFG.syncUrl=SYNC_URL;
 let V={screen:CFG.tecnico?'home':'setup',tr:null,tab:'cim',pi:0,fila:'motor',exp:false,ms:null,selPv:0,selSub:0};
-let GPS=null, LAST_CHG=null, SYNC_OK=null, SYNC_Q=[], SYNC_T=null;
+let GPS=null, LAST_CHG=null, CHANGE_Q=[], SYNC_OK=null, SYNC_Q=[], SYNC_T=null;
 
 function ld(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
 function sv(){try{localStorage.setItem(SK,JSON.stringify(APP))}catch(e){}}
@@ -349,6 +349,7 @@ function pullTracker(code,callback){
   if(!CFG.syncUrl)return callback&&callback();
   var p={a:'g',t:code};
   var cbName='_cb_'+Date.now();
+  var pullTime=Date.now();
   window[cbName]=function(data){
     delete window[cbName];
     if(data&&data.fields){
@@ -359,8 +360,9 @@ function pullTracker(code,callback){
         if(remote.v!=null&&remote.v!==''){
           var rv=isNaN(remote.v)?String(remote.v):parseFloat(remote.v);
           var localVal=td.cim[key];
-          // Remote always overwrites defaults and empty values
-          if(localVal==null||localVal===''||localVal!==rv){
+          // Only overwrite if field wasn't edited locally since we sent the request
+          var editedAfter=td._lastEdit&&td._lastEdit[key]&&td._lastEdit[key]>pullTime;
+          if(!editedAfter&&(localVal==null||localVal==='')){
             td.cim[key]=rv;
             changed=true;
           }
@@ -384,10 +386,22 @@ function pullTracker(code,callback){
 
 function syncTracker(code){
   if(!CFG.syncUrl)return;
+  if(SYNC_T)clearTimeout(SYNC_T);
+  SYNC_T=setTimeout(function(){flushSync(code)},2000);
+}
+
+function flushSync(code){
+  if(!CFG.syncUrl||!code)return;
   var td=getTD(code),m=getMI(code),c=countF(code);
   var nos=0;for(var k in td.cim)if(td.cim[k]==="NO")nos++;for(var k in td.mont)if(td.mont[k]==="NO")nos++;
   var gl=(td.gps_log||[]),last=gl.length?gl[gl.length-1]:{};
-  var payload={
+  
+  // Grab all queued changes
+  var queue=CHANGE_Q.splice(0,CHANGE_Q.length);
+  
+  // Send each change as a separate request (ensures all fields reach the server)
+  // First send summary update (no field data, just status)
+  var base={
     a:"s",t:code,tp:m?.type||"",pv:m?.pv||"",sub:m?.sub||0,
     mx:m?.mx||"",my:m?.my||"",te:CFG.tecnico||"",
     cp:c.cimT>0?Math.round(c.cimF/c.cimT*100):0,
@@ -397,19 +411,32 @@ function syncTracker(code){
     ob:(td.obs||"").substring(0,100),
     gl:last.lat||"",go:last.lon||""
   };
-  var st=calcStatus(code);payload.st=st;payload.lk=td.locked?1:0;
-  if(LAST_CHG){payload.fid=LAST_CHG.fid;payload.fv=LAST_CHG.v;payload.fp=LAST_CHG.p;payload.ff=LAST_CHG.fl;LAST_CHG=null}
-  if(SYNC_T)clearTimeout(SYNC_T);
-  SYNC_T=setTimeout(function(){doSync(payload)},3000);
+  var st=calcStatus(code);base.st=st;base.lk=td.locked?1:0;
+  LAST_CHG=null;
+  
+  if(queue.length===0){
+    doSync(base);
+  }else{
+    // Send each field change sequentially
+    var idx=0;
+    function sendNext(){
+      if(idx>=queue.length){showSync('ok');return}
+      var chg=queue[idx++];
+      var p=JSON.parse(JSON.stringify(base));
+      p.fid=chg.fid;p.fv=chg.fv;p.fp=chg.fp;p.ff=chg.ff;
+      doSync(p,sendNext);
+    }
+    sendNext();
+  }
 }
 
-function doSync(payload){
+function doSync(payload,cb){
   var encoded=encodeURIComponent(JSON.stringify(payload));
   var url=CFG.syncUrl+"?d="+encoded;
   var s=document.createElement("script");
   s.src=url;
-  s.onload=function(){showSync("ok");document.head.removeChild(s)};
-  s.onerror=function(){showSync("ok");try{document.head.removeChild(s)}catch(e){}};
+  s.onload=function(){showSync("ok");try{document.head.removeChild(s)}catch(e){};if(cb)cb()};
+  s.onerror=function(){showSync("ok");try{document.head.removeChild(s)}catch(e){};if(cb)cb()};
   document.head.appendChild(s);
 }
 
@@ -1135,6 +1162,7 @@ function setCV(code,key,val){if(isLocked(code)){return}const td=getTD(code);
   var m=getMI(code),cfg=PCFG[m.type],pils=cfg[V.fila]||cfg.motor;
   var parts=key.split('_'),fid=parts.slice(2).join('_');
   LAST_CHG={fid:fid,v:String(td.cim[key]!=null?td.cim[key]:''),p:pils[V.pi]||'',fl:V.fila==='motor'?'Motor':'Conducida'};
+  CHANGE_Q.push({fid:fid,fv:String(td.cim[key]!=null?td.cim[key]:''),fp:pils[V.pi]||'',ff:V.fila==='motor'?'Motor':'Conducida'});
   sv();syncTracker(code);R();
 }
 
@@ -1165,7 +1193,7 @@ function rMont(code,td){
   });
   return h;
 }
-function setMV(code,key,val){if(isLocked(code)){return}const td=getTD(code);td.mont[key]=td.mont[key]===val?null:val;LAST_CHG={fid:key,v:String(td.mont[key]!=null?td.mont[key]:''),p:'Montaje',fl:'Montaje'};sv();syncTracker(code);R()}
+function setMV(code,key,val){if(isLocked(code)){return}const td=getTD(code);td.mont[key]=td.mont[key]===val?null:val;LAST_CHG={fid:key,v:String(td.mont[key]!=null?td.mont[key]:''),p:'Montaje',fl:'Montaje'};CHANGE_Q.push({fid:key,fv:String(td.mont[key]!=null?td.mont[key]:''),fp:'Montaje',ff:'Montaje'});sv();syncTracker(code);R()}
 
 // OK/NO/NA
 function rOkNo(val,tpl,compact){
