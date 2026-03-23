@@ -387,7 +387,7 @@ function pullTracker(code,callback){
 function syncTracker(code){
   if(!CFG.syncUrl)return;
   if(SYNC_T)clearTimeout(SYNC_T);
-  SYNC_T=setTimeout(function(){flushSync(code)},2000);
+  SYNC_T=setTimeout(function(){flushSync(code)},5000);
 }
 
 function flushSync(code){
@@ -412,6 +412,19 @@ function flushSync(code){
     gl:last.lat||"",go:last.lon||""
   };
   var st=calcStatus(code);base.st=st;base.lk=td.locked?1:0;
+  // Montaje group status
+  var mg={};
+  MONT_GROUPS.forEach(function(g){
+    var gTot=0,gFl=0,gBad=false;
+    g.secs.forEach(function(s){
+      s.items.forEach(function(it){
+        gTot++;
+        if(td.mont[it.id]!=null){gFl++;if(td.mont[it.id]!=='SI')gBad=true}
+      });
+    });
+    mg[g.id]=gFl===0?'':(gFl<gTot?'PDTE':(gBad?'SI/MAL':'SI'));
+  });
+  base.mg=mg;
   LAST_CHG=null;
   
   if(queue.length===0){
