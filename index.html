@@ -919,6 +919,146 @@ function initPlanoEvents(){
   });
 }
 
+function rDashboard(a){
+  a.innerHTML='<div class="hdr"><button class="btn-icon" onclick="V.screen=\'home\';R()" style="font-size:20px;min-width:38px">\u2190</button><div><h1>Dashboard</h1><div class="sub">Control de avance</div></div></div>'
+    +'<div class="cnt" style="padding-top:10px"><div id="dash-loading" style="text-align:center;padding:40px;color:var(--td)">Cargando datos...</div><div id="dash-content" style="display:none"></div></div>';
+  pullDashboard();
+}
+
+function pullDashboard(){
+  if(!CFG.syncUrl){renderDashboardLocal();return}
+  var cbName='_cbd_'+Date.now();
+  window[cbName]=function(data){
+    delete window[cbName];
+    document.getElementById('dash-loading').style.display='none';
+    var dc=document.getElementById('dash-content');
+    dc.style.display='block';
+    if(!data||!data.total){renderDashboardLocal();return}
+    renderDashboard(dc,data);
+  };
+  var url=CFG.syncUrl+'?d='+encodeURIComponent(JSON.stringify({a:'gd'}))+'&cb='+cbName;
+  var s=document.createElement('script');
+  s.src=url;s.onload=function(){try{document.head.removeChild(s)}catch(e){}};
+  s.onerror=function(){try{document.head.removeChild(s)}catch(e){};renderDashboardLocal()};
+  document.head.appendChild(s);
+}
+
+function renderDashboardLocal(){
+  document.getElementById('dash-loading').style.display='none';
+  var dc=document.getElementById('dash-content');
+  dc.style.display='block';
+  rDash(dc);
+}
+
+function renderDashboard(el,d){
+  var pct=d.total>0?Math.round(d.done/d.total*100):0;
+  var inProgress=0;Object.values(d.byTec).forEach(function(t){inProgress+=t.started-t.done});
+  
+  var h='';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">';
+  h+='<div class="sc"><div class="sc-l">Total trackers</div><div class="sc-v">'+d.total+'</div></div>';
+  h+='<div class="sc"><div class="sc-l">Completados</div><div class="sc-v" style="color:var(--ok)">'+d.done+' <span style="font-size:14px;opacity:.7">('+pct+'%)</span></div></div>';
+  h+='<div class="sc"><div class="sc-l">En curso</div><div class="sc-v" style="color:#f59e0b">'+inProgress+'</div></div>';
+  h+='<div class="sc"><div class="sc-l">Con incidencias</div><div class="sc-v" style="color:var(--no)">'+d.issues+'</div></div>';
+  h+='</div>';
+  
+  h+='<div class="card" style="padding:12px;margin-bottom:14px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">Avance global</div>';
+  h+='<div class="prog" style="height:12px"><div class="prog-b'+(pct>=100?' done':'')+'" style="width:'+pct+'%"></div></div>';
+  h+='<div style="text-align:center;font-size:12px;color:var(--td);margin-top:4px">'+d.done+' / '+d.total+'</div></div>';
+  
+  var tecs=Object.keys(d.byTec).sort(function(a,b){return d.byTec[b].done-d.byTec[a].done});
+  if(tecs.length>0){
+    h+='<div class="card" style="padding:12px;margin-bottom:14px"><div style="font-weight:700;font-size:13px;margin-bottom:10px">Por t\u00e9cnico</div>';
+    tecs.forEach(function(tec){
+      var t=d.byTec[tec];
+      var tp=d.total>0?Math.round(t.done/d.total*100):0;
+      h+='<div style="margin-bottom:10px">';
+      h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:600">'+tec+'</span><span style="color:var(--td)">'+t.done+' OK / '+t.started+' tot'+(t.issues>0?' <span style=color:var(--no)>'+t.issues+' inc</span>':'')+'</span></div>';
+      h+='<div class="prog" style="height:6px"><div class="prog-b" style="width:'+tp+'%;background:'+(t.issues>0?'var(--no)':'var(--ok)')+'"></div></div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  
+  var pvs=Object.keys(d.byPv).sort();
+  if(pvs.length>0){
+    h+='<div class="card" style="padding:12px;margin-bottom:14px"><div style="font-weight:700;font-size:13px;margin-bottom:10px">Por PV / Subcampo</div>';
+    pvs.forEach(function(pv){
+      var p=d.byPv[pv];
+      var pp=p.total>0?Math.round(p.done/p.total*100):0;
+      var barColor=p.issues>0?'var(--no)':pp>=100?'var(--ok)':'var(--ac)';
+      h+='<div style="margin-bottom:8px">';
+      h+='<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span style="font-weight:600">'+pv+'</span><span style="color:var(--td)">'+p.done+'/'+p.total+' ('+pp+'%)'+(p.issues>0?' <span style=color:var(--no)>'+p.issues+' inc</span>':'')+'</span></div>';
+      h+='<div class="prog" style="height:5px"><div class="prog-b" style="width:'+pp+'%;background:'+barColor+'"></div></div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  
+  var days=Object.keys(d.byDay).sort();
+  if(days.length>0){
+    h+='<div class="card" style="padding:12px;margin-bottom:14px"><div style="font-weight:700;font-size:13px;margin-bottom:10px">Actividad diaria</div>';
+    h+='<canvas id="dailyChart" width="600" height="200" style="width:100%;height:150px"></canvas></div>';
+  }
+  
+  if(d.incidents&&d.incidents.length>0){
+    h+='<div class="card" style="padding:12px;margin-bottom:14px"><div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--no)">Incidencias ('+d.incidents.length+')</div>';
+    d.incidents.forEach(function(inc){
+      h+='<div style="padding:8px;border-radius:8px;background:rgba(239,68,68,.1);margin-bottom:6px;font-size:12px">';
+      h+='<div style="font-weight:700">'+inc.t+' <span style="font-weight:400;color:var(--td)">'+inc.pv+'</span></div>';
+      h+='<div style="color:var(--no);margin-top:2px">'+inc.bad+'</div>';
+      if(inc.te)h+='<div style="color:var(--td);margin-top:2px">\ud83d\udc64 '+inc.te+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  
+  h+='<div class="card" style="padding:12px;margin-bottom:14px">';
+  h+='<div style="font-weight:700;font-size:13px;margin-bottom:10px">Exportar</div>';
+  h+='<button onclick="exportDash()" style="width:100%;height:40px;border-radius:10px;background:#217346;color:#fff;font-size:13px;font-weight:700;margin-bottom:8px">Exportar Dashboard Excel</button>';
+  h+='</div>';
+  
+  el.innerHTML=h;
+  
+  if(days.length>0)setTimeout(function(){drawDailyChart(days,d.byDay)},100);
+}
+
+function drawDailyChart(days,byDay){
+  var cv=document.getElementById('dailyChart');
+  if(!cv)return;
+  var ctx=cv.getContext('2d');
+  var W=cv.width,H=cv.height;
+  var pad={l:35,r:10,t:10,b:30};
+  var cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+  var show=days.slice(-30);
+  var vals=show.map(function(d){return byDay[d].changes});
+  var maxV=Math.max.apply(null,vals)||1;
+  var barW=Math.max(cW/show.length-2,4);
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;
+  for(var i=0;i<=4;i++){
+    var y=pad.t+cH-cH*(i/4);
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+    ctx.fillStyle='#888';ctx.font='9px sans-serif';ctx.textAlign='right';
+    ctx.fillText(Math.round(maxV*i/4),pad.l-4,y+3);
+  }
+  show.forEach(function(day,i){
+    var v=byDay[day].changes;
+    var bH=cH*(v/maxV);
+    var x=pad.l+i*(cW/show.length)+(cW/show.length-barW)/2;
+    var y2=pad.t+cH-bH;
+    ctx.fillStyle='#f59e0b';
+    ctx.fillRect(x,y2,barW,bH);
+    if(show.length<=15||i%Math.ceil(show.length/10)===0){
+      ctx.save();ctx.translate(x+barW/2,H-5);ctx.rotate(-0.5);
+      ctx.fillStyle='#888';ctx.font='8px sans-serif';ctx.textAlign='center';
+      ctx.fillText(day.substring(5),0,0);
+      ctx.restore();
+    }
+  });
+}
+
+
 function R(){({setup:rSetup,home:rHome,select:rSelect,tracker:rTracker,dashboard:rDashboard,config:rConfig})[V.screen](document.getElementById('app'));setTimeout(()=>showSync(''),50)}
 
 // SETUP
