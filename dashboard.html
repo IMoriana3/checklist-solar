@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard — ISFV ATALAYA</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117;
+  --bg2: #161820;
+  --card: #1c1f2a;
+  --card2: #232636;
+  --bd: #2a2d3a;
+  --tx: #e8eaed;
+  --tx2: #8b8fa3;
+  --tx3: #565a6e;
+  --ac: #3ecf8e;
+  --ac2: #2ba36f;
+  --warn: #f5a623;
+  --err: #ef4444;
+  --info: #3b82f6;
+  --purple: #a78bfa;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--tx); min-height:100vh; }
+.mono { font-family:'JetBrains Mono',monospace; }
+
+/* Layout */
+.top { display:flex; align-items:center; justify-content:space-between; padding:20px 28px; border-bottom:1px solid var(--bd); }
+.top h1 { font-size:22px; font-weight:700; letter-spacing:-0.5px; }
+.top .sub { font-size:12px; color:var(--tx2); margin-top:2px; }
+.top .badge { font-size:11px; padding:4px 10px; border-radius:20px; background:rgba(62,207,142,.15); color:var(--ac); font-weight:600; }
+.top-r { display:flex; align-items:center; gap:12px; }
+.refresh-btn { background:var(--card); border:1px solid var(--bd); color:var(--tx2); padding:8px 14px; border-radius:8px; font-size:12px; cursor:pointer; transition:all .2s; }
+.refresh-btn:hover { background:var(--card2); color:var(--tx); }
+
+.grid { display:grid; gap:16px; padding:20px 28px; }
+.g4 { grid-template-columns:repeat(4,1fr); }
+.g3 { grid-template-columns:repeat(3,1fr); }
+.g2 { grid-template-columns:1fr 1fr; }
+.g1-2 { grid-template-columns:1fr 2fr; }
+.g2-1 { grid-template-columns:2fr 1fr; }
+
+@media(max-width:900px) { .g4,.g3,.g2,.g1-2,.g2-1 { grid-template-columns:1fr; } }
+@media(min-width:900px) and (max-width:1200px) { .g4 { grid-template-columns:repeat(2,1fr); } }
+
+/* Cards */
+.card { background:var(--card); border:1px solid var(--bd); border-radius:14px; padding:20px; position:relative; overflow:hidden; transition:border-color .2s; }
+.card:hover { border-color:#3a3d4e; }
+.card-t { font-size:12px; font-weight:600; color:var(--tx2); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; }
+.card-v { font-size:36px; font-weight:700; letter-spacing:-1px; line-height:1; }
+.card-s { font-size:13px; color:var(--tx2); margin-top:6px; }
+.card-pct { position:absolute; top:18px; right:18px; font-size:12px; font-weight:700; padding:4px 10px; border-radius:20px; }
+
+/* Progress bar */
+.pbar { height:6px; border-radius:3px; background:var(--bg); margin-top:12px; overflow:hidden; }
+.pbar-f { height:100%; border-radius:3px; transition:width 1.5s cubic-bezier(.4,0,.2,1); }
+
+/* Heatmap */
+.heatmap { display:flex; gap:2px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; }
+.hm-col { display:flex; flex-direction:column; gap:2px; }
+.hm-cell { width:13px; height:13px; border-radius:3px; background:var(--bg); transition:background .3s; cursor:pointer; position:relative; }
+.hm-cell:hover { outline:1px solid var(--ac); outline-offset:1px; }
+.hm-labels { display:flex; flex-direction:column; gap:2px; margin-right:6px; padding-top:18px; }
+.hm-labels span { height:13px; font-size:9px; color:var(--tx3); display:flex; align-items:center; }
+.hm-months { display:flex; gap:2px; margin-left:30px; margin-bottom:4px; }
+.hm-months span { font-size:9px; color:var(--tx3); min-width:13px; }
+.hm-legend { display:flex; align-items:center; gap:4px; margin-top:8px; font-size:10px; color:var(--tx3); }
+.hm-legend .sq { width:11px; height:11px; border-radius:2px; }
+
+/* Chart */
+.chart-wrap { position:relative; height:180px; }
+.chart-wrap canvas { width:100%!important; height:100%!important; }
+
+/* Status bars */
+.status-bar { display:flex; border-radius:8px; overflow:hidden; height:32px; margin-top:8px; }
+.status-bar div { display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; transition:width 1s ease; }
+
+/* Technician rows */
+.tec-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--bd); }
+.tec-row:last-child { border-bottom:none; }
+.tec-ava { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff; flex-shrink:0; }
+.tec-info { flex:1; min-width:0; }
+.tec-name { font-weight:600; font-size:13px; }
+.tec-stats { font-size:11px; color:var(--tx2); margin-top:1px; }
+.tec-bar { width:120px; flex-shrink:0; }
+
+/* PV rows */
+.pv-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(42,45,58,.5); }
+.pv-row:last-child { border-bottom:none; }
+.pv-name { font-weight:600; font-size:12px; min-width:70px; }
+.pv-bar-wrap { flex:1; height:8px; border-radius:4px; background:var(--bg); overflow:hidden; }
+.pv-bar-f { height:100%; border-radius:4px; transition:width 1.5s ease; }
+.pv-pct { font-size:12px; font-weight:600; min-width:44px; text-align:right; }
+.pv-nums { font-size:10px; color:var(--tx2); min-width:50px; text-align:right; }
+
+/* Incidents */
+.inc-item { padding:10px 12px; border-radius:10px; background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.15); margin-bottom:6px; }
+.inc-item:last-child { margin-bottom:0; }
+.inc-tr { font-weight:700; font-size:13px; }
+.inc-pv { font-size:11px; color:var(--tx2); }
+.inc-bad { font-size:11px; color:var(--err); margin-top:3px; }
+.inc-tec { font-size:10px; color:var(--tx3); margin-top:2px; }
+
+/* Tooltip */
+.tooltip { position:fixed; background:var(--card2); border:1px solid var(--bd); border-radius:8px; padding:8px 12px; font-size:11px; z-index:999; pointer-events:none; display:none; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+
+/* Loading */
+.loading { display:flex; align-items:center; justify-content:center; height:300px; color:var(--tx2); font-size:14px; }
+.spin { display:inline-block; width:18px; height:18px; border:2px solid var(--bd); border-top-color:var(--ac); border-radius:50%; animation:sp .6s linear infinite; margin-right:8px; }
+@keyframes sp { to { transform:rotate(360deg); } }
+
+/* Scrollbar */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--bd); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div>
+    <h1>Dashboard</h1>
+    <div class="sub">ISFV ATALAYA · XAMAI / X-ELIO · <span id="date-now"></span></div>
+  </div>
+  <div class="top-r">
+    <span class="badge" id="status-badge">Conectando...</span>
+    <button class="refresh-btn" onclick="loadData()">↻ Actualizar</button>
+  </div>
+</div>
+
+<div id="content">
+  <div class="loading"><span class="spin"></span>Cargando datos de Google Sheets...</div>
+</div>
+
+<div class="tooltip" id="tip"></div>
+
+<script>
+const SYNC_URL = 'https://script.google.com/macros/s/AKfycbxNbWR8rqrsugUEfJClSfTCtJVI9Gze5j9l6330Iw81v_fuTApAaAZkwt3GEjqHIBQ6/exec';
+
+document.getElementById('date-now').textContent = new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+function loadData(){
+  document.getElementById('status-badge').textContent='Cargando...';
+  document.getElementById('status-badge').style.background='rgba(245,166,35,.15)';
+  document.getElementById('status-badge').style.color='var(--warn)';
+  
+  var cbName='_cbd_'+Date.now();
+  window[cbName]=function(data){
+    delete window[cbName];
+    if(!data){document.getElementById('content').innerHTML='<div class="loading">Sin datos</div>';return}
+    window._D=data;
+    render(data);
+    document.getElementById('status-badge').textContent='En vivo · '+new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('status-badge').style.background='rgba(62,207,142,.15)';
+    document.getElementById('status-badge').style.color='var(--ac)';
+  };
+  var url=SYNC_URL+'?d='+encodeURIComponent(JSON.stringify({a:'gd'}))+'&cb='+cbName;
+  var s=document.createElement('script');
+  s.src=url;
+  s.onerror=function(){
+    document.getElementById('status-badge').textContent='Error conexión';
+    document.getElementById('status-badge').style.background='rgba(239,68,68,.15)';
+    document.getElementById('status-badge').style.color='var(--err)';
+  };
+  document.head.appendChild(s);
+}
+
+function render(d){
+  var pct=d.total>0?Math.round(d.done/d.total*100):0;
+  var started=0;Object.values(d.byTec).forEach(function(t){started+=t.started});
+  var inProgress=started-d.done;
+  var pending=d.total-started;
+  
+  // Count total piles from byDay
+  var totalChanges=0,workDays=0;
+  var days=Object.keys(d.byDay).sort();
+  days.forEach(function(day){totalChanges+=d.byDay[day].changes;workDays++});
+  var dailyAvg=workDays>0?Math.round(totalChanges/workDays):0;
+  
+  var h='';
+  
+  // KPI Row
+  h+='<div class="grid g4">';
+  h+=kpiCard('Trackers Validados',d.done,d.total,pct,'var(--ac)');
+  h+=kpiCard('Registros Campo',totalChanges,'','','var(--info)');
+  h+=kpiCard('Con Incidencias',d.issues,d.total,d.total>0?Math.round(d.issues/d.total*100):0,'var(--err)');
+  h+=kpiCard('Pendientes',pending,d.total,d.total>0?Math.round(pending/d.total*100):0,'var(--tx3)');
+  h+='</div>';
+  
+  // Calendar + Daily Piles
+  h+='<div class="grid g2">';
+  h+='<div class="card"><div class="card-t">Calendario de Actividad</div><div id="heatmap-wrap"></div></div>';
+  h+='<div class="card"><div class="card-t">Actividad Diaria</div><div class="chart-wrap"><canvas id="dailyChart"></canvas></div></div>';
+  h+='</div>';
+  
+  // Status + Technicians
+  h+='<div class="grid g2">';
+  
+  // Tracker Status
+  h+='<div class="card"><div class="card-t">Estado de Trackers</div>';
+  h+='<div style="display:flex;justify-content:space-around;text-align:center;margin:16px 0 8px">';
+  h+=statusNum(d.done,'Validados','var(--ac)');
+  h+=statusNum(inProgress,'En curso','var(--warn)');
+  h+=statusNum(d.issues,'Incidencias','var(--err)');
+  h+=statusNum(pending,'Pendientes','var(--tx3)');
+  h+='</div>';
+  h+='<div class="status-bar">';
+  var w1=d.total>0?(d.done/d.total*100):0;
+  var w2=d.total>0?(inProgress/d.total*100):0;
+  var w3=d.total>0?(d.issues/d.total*100):0;
+  var w4=100-w1-w2-w3;if(w4<0)w4=0;
+  h+='<div style="width:'+w1+'%;background:var(--ac);color:#000">'+d.done+'</div>';
+  h+='<div style="width:'+w2+'%;background:var(--warn);color:#000">'+inProgress+'</div>';
+  h+='<div style="width:'+w3+'%;background:var(--err);color:#fff">'+d.issues+'</div>';
+  h+='<div style="width:'+w4+'%;background:var(--card2);color:var(--tx3)">'+pending+'</div>';
+  h+='</div>';
+  h+='<div style="display:flex;gap:16px;margin-top:12px;font-size:10px;color:var(--tx3)">';
+  h+='<span>● Validados</span><span style="color:var(--warn)">● En curso</span><span style="color:var(--err)">● Incidencias</span><span>● Pendientes</span>';
+  h+='</div></div>';
+  
+  // Technicians
+  h+='<div class="card"><div class="card-t">Por Técnico</div>';
+  var tecs=Object.keys(d.byTec).sort(function(a,b){return d.byTec[b].done-d.byTec[a].done});
+  var colors=['#3ecf8e','#3b82f6','#a78bfa','#f5a623','#ef4444','#ec4899','#06b6d4'];
+  tecs.forEach(function(tec,idx){
+    var t=d.byTec[tec];
+    var tp=d.total>0?Math.round(t.done/d.total*100):0;
+    var initial=tec.split(' ').map(function(w){return w[0]}).join('').substring(0,2).toUpperCase();
+    h+='<div class="tec-row">';
+    h+='<div class="tec-ava" style="background:'+colors[idx%colors.length]+'">'+initial+'</div>';
+    h+='<div class="tec-info"><div class="tec-name">'+tec+'</div>';
+    h+='<div class="tec-stats">'+t.done+' validados · '+t.started+' total'+(t.issues>0?' · '+t.issues+' inc':'')+'</div></div>';
+    h+='<div class="tec-bar"><div class="pbar" style="height:4px"><div class="pbar-f" style="width:'+tp+'%;background:'+colors[idx%colors.length]+'"></div></div>';
+    h+='<div style="font-size:10px;text-align:right;color:var(--tx2);margin-top:2px">'+tp+'%</div></div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='</div>';
+  
+  // PV Progress + Incidents
+  h+='<div class="grid g2">';
+  
+  // PV/Subcampo
+  h+='<div class="card"><div class="card-t">Avance por PV / Subcampo</div>';
+  var pvs=Object.keys(d.byPv).sort();
+  pvs.forEach(function(pv){
+    var p=d.byPv[pv];
+    var pp=p.total>0?Math.round(p.done/p.total*100):0;
+    var barColor=p.issues>0?'var(--err)':pp>=100?'var(--ac)':'var(--info)';
+    h+='<div class="pv-row">';
+    h+='<div class="pv-name">'+pv+'</div>';
+    h+='<div class="pv-bar-wrap"><div class="pv-bar-f" style="width:'+pp+'%;background:'+barColor+'"></div></div>';
+    h+='<div class="pv-pct" style="color:'+barColor+'">'+pp+'%</div>';
+    h+='<div class="pv-nums">'+p.done+'/'+p.total+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  
+  // Incidents
+  h+='<div class="card"><div class="card-t" style="color:var(--err)">Incidencias ('+d.incidents.length+')</div>';
+  if(d.incidents.length===0)h+='<div style="padding:20px;text-align:center;color:var(--tx3);font-size:13px">Sin incidencias</div>';
+  else d.incidents.slice(0,20).forEach(function(inc){
+    h+='<div class="inc-item">';
+    h+='<div class="inc-tr">'+inc.t+' <span class="inc-pv">'+inc.pv+'</span></div>';
+    h+='<div class="inc-bad">'+inc.bad+'</div>';
+    if(inc.te)h+='<div class="inc-tec">👤 '+inc.te+'</div>';
+    h+='</div>';
+  });
+  if(d.incidents.length>20)h+='<div style="text-align:center;font-size:11px;color:var(--tx3);margin-top:8px">+'+(d.incidents.length-20)+' más</div>';
+  h+='</div>';
+  
+  h+='</div>';
+  
+  // Counters row
+  h+='<div class="grid g3">';
+  h+='<div class="card" style="text-align:center"><div class="card-t">Total Registros</div><div class="card-v mono" style="color:var(--ac)">'+totalChanges.toLocaleString()+'</div></div>';
+  h+='<div class="card" style="text-align:center"><div class="card-t">Media Diaria</div><div class="card-v mono">'+dailyAvg+'</div></div>';
+  h+='<div class="card" style="text-align:center"><div class="card-t">Días Trabajados</div><div class="card-v mono">'+workDays+'</div></div>';
+  h+='</div>';
+  
+  document.getElementById('content').innerHTML=h;
+  
+  // Draw heatmap
+  setTimeout(function(){drawHeatmap(d.byDay)},50);
+  // Draw daily chart
+  setTimeout(function(){drawDaily(d.byDay)},100);
+}
+
+function kpiCard(title,value,total,pct,color){
+  var h='<div class="card">';
+  h+='<div class="card-t">'+title+'</div>';
+  h+='<div class="card-v" style="color:'+color+'">'+value.toLocaleString()+'</div>';
+  if(total)h+='<div class="card-s">/ '+total.toLocaleString()+'</div>';
+  if(pct!==''&&pct!==undefined)h+='<div class="card-pct" style="background:'+color+'22;color:'+color+'">'+pct+'%</div>';
+  if(total)h+='<div class="pbar"><div class="pbar-f" style="width:'+pct+'%;background:'+color+'"></div></div>';
+  h+='</div>';
+  return h;
+}
+
+function statusNum(n,label,color){
+  return '<div><div style="font-size:28px;font-weight:700;color:'+color+'">'+n+'</div><div style="font-size:10px;color:var(--tx2)">'+label+'</div></div>';
+}
+
+function drawHeatmap(byDay){
+  var wrap=document.getElementById('heatmap-wrap');
+  if(!wrap)return;
+  
+  // Build 52 weeks from today backwards
+  var today=new Date();
+  var cells=[];
+  for(var i=364;i>=0;i--){
+    var d=new Date(today);d.setDate(d.getDate()-i);
+    var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    cells.push({date:d,key:key,day:d.getDay(),val:byDay[key]?byDay[key].changes:0});
+  }
+  
+  var maxVal=Math.max.apply(null,cells.map(function(c){return c.val}))||1;
+  var totalMarks=cells.reduce(function(a,c){return a+c.val},0);
+  
+  // Group by weeks
+  var weeks=[];var week=[];
+  cells.forEach(function(c){
+    if(c.day===0&&week.length>0){weeks.push(week);week=[]}
+    week.push(c);
+  });
+  if(week.length>0)weeks.push(week);
+  
+  // Months labels
+  var months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  
+  var h='<div style="display:flex;align-items:flex-start">';
+  h+='<div class="hm-labels"><span></span><span>Lun</span><span></span><span>Mié</span><span></span><span>Vie</span><span></span></div>';
+  h+='<div style="overflow-x:auto"><div class="heatmap">';
+  
+  var lastMonth=-1;
+  weeks.forEach(function(wk){
+    h+='<div class="hm-col">';
+    // Check month label
+    var firstCell=wk[0];
+    if(firstCell.date.getMonth()!==lastMonth){
+      lastMonth=firstCell.date.getMonth();
+    }
+    // Pad start of first week
+    for(var p=0;p<wk[0].day;p++)h+='<div style="width:13px;height:13px"></div>';
+    wk.forEach(function(c){
+      var intensity=c.val>0?Math.max(0.2,Math.min(1,c.val/maxVal)):0;
+      var bg=c.val===0?'var(--bg)':'rgba(62,207,142,'+intensity+')';
+      var title=c.key+': '+c.val+' registros';
+      h+='<div class="hm-cell" style="background:'+bg+'" data-tip="'+title+'" onmouseenter="showTip(event,this)" onmouseleave="hideTip()"></div>';
+    });
+    h+='</div>';
+  });
+  h+='</div></div></div>';
+  
+  h+='<div class="hm-legend"><span>'+totalMarks+' registros en 2026</span><span style="margin-left:auto">Menos</span>';
+  [0,.2,.4,.7,1].forEach(function(i){
+    h+='<div class="sq" style="background:'+(i===0?'var(--bg)':'rgba(62,207,142,'+i+')')+'"></div>';
+  });
+  h+='<span>Más</span></div>';
+  
+  wrap.innerHTML=h;
+}
+
+function drawDaily(byDay){
+  var cv=document.getElementById('dailyChart');
+  if(!cv)return;
+  cv.width=cv.offsetWidth*2;cv.height=cv.offsetHeight*2;
+  var ctx=cv.getContext('2d');
+  ctx.scale(2,2);
+  var W=cv.offsetWidth,H=cv.offsetHeight;
+  var pad={l:40,r:10,t:10,b:28};
+  var cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
+  
+  var days=Object.keys(byDay).sort().slice(-30);
+  if(days.length===0)return;
+  var vals=days.map(function(d){return byDay[d].changes});
+  var maxV=Math.max.apply(null,vals)||1;
+  var barW=Math.max((cW/days.length)-3,4);
+  
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;
+  for(var i=0;i<=4;i++){
+    var y=pad.t+cH-cH*(i/4);
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+    ctx.fillStyle='#565a6e';ctx.font='500 9px JetBrains Mono';ctx.textAlign='right';
+    ctx.fillText(Math.round(maxV*i/4),pad.l-6,y+3);
+  }
+  
+  // Bars with gradient
+  days.forEach(function(day,i){
+    var v=vals[i];
+    var bH=cH*(v/maxV);
+    var x=pad.l+i*(cW/days.length)+(cW/days.length-barW)/2;
+    var y=pad.t+cH-bH;
+    
+    var grd=ctx.createLinearGradient(x,y,x,pad.t+cH);
+    grd.addColorStop(0,'rgba(62,207,142,0.9)');
+    grd.addColorStop(1,'rgba(62,207,142,0.2)');
+    ctx.fillStyle=grd;
+    
+    // Rounded top
+    var r=Math.min(barW/2,3);
+    ctx.beginPath();
+    ctx.moveTo(x,pad.t+cH);
+    ctx.lineTo(x,y+r);
+    ctx.arcTo(x,y,x+r,y,r);
+    ctx.arcTo(x+barW,y,x+barW,y+r,r);
+    ctx.lineTo(x+barW,pad.t+cH);
+    ctx.fill();
+    
+    // Date labels
+    if(days.length<=15||i%Math.ceil(days.length/10)===0){
+      ctx.fillStyle='#565a6e';ctx.font='500 8px JetBrains Mono';ctx.textAlign='center';
+      ctx.fillText(day.substring(5),x+barW/2,H-6);
+    }
+  });
+}
+
+function showTip(e,el){
+  var tip=document.getElementById('tip');
+  tip.textContent=el.dataset.tip;
+  tip.style.display='block';
+  tip.style.left=(e.clientX+10)+'px';
+  tip.style.top=(e.clientY-30)+'px';
+}
+function hideTip(){document.getElementById('tip').style.display='none'}
+
+// Auto-refresh every 5 minutes
+loadData();
+setInterval(loadData,300000);
+</script>
+</body>
+</html>
