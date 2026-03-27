@@ -11,6 +11,7 @@
 <title>Checklist Solar - ATALAYA</title>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 <script src="master.js"></script>
+<script src="master_con.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{--bg:#0c1117;--sf:#161d27;--sf2:#1e2736;--bd:#2a3545;--ac:#f59e0b;--ok:#22c55e;--no:#ef4444;--na:#6b7280;--tx:#e8eaed;--td:#7a8a9a}
@@ -531,7 +532,10 @@ function countF(code){
   });
   const montT=MONT.reduce((a,s)=>a+s.items.length,0);
   const montF=Object.keys(td.mont).filter(k=>td.mont[k]!=null).length;
-  return{cimF,cimT,montF,montT,pct:(cimT+montT)>0?Math.round((cimF+montF)/(cimT+montT)*100):0};
+  if(!td.mod)td.mod={};
+  const modT2=MOD_GROUPS.reduce((a,g)=>a+g.items.length,0);
+  const modF2=Object.keys(td.mod).filter(k=>td.mod[k]!=null).length;
+  return{cimF,cimT,montF,montT,modF:modF2,modT:modT2,pct:(cimT+montT+modT2)>0?Math.round((cimF+montF+modF2)/(cimT+montT+modT2)*100):0};
 }
 
 // PHOTOS
@@ -1071,7 +1075,6 @@ function getConD(code){
 
 var CON_ESTADOS=[
   {id:'no_intentada',label:'No intentada',color:'var(--bd)',icon:'⬜'},
-  {id:'intentada',label:'Intentada',color:'#f59e0b',icon:'🟡'},
   {id:'hincada',label:'Hincada OK',color:'var(--ok)',icon:'🟢'},
   {id:'rechazo',label:'Rechazo',color:'var(--no)',icon:'🔴'}
 ];
@@ -1173,7 +1176,7 @@ function updConTL(){
         var est=con[px+'_'+i+'_estado']||'no_intentada';
         if(est==='hincada')hincadas++;
         else if(est==='rechazo')rechazos++;
-        else if(est==='intentada')intentadas++;
+        
       }
     }
     
@@ -1185,7 +1188,7 @@ function updConTL(){
     h+='<div><span style="font-weight:700;font-size:16px;color:var(--tx)">'+d.num+'</span> <span style="font-size:11px;color:var(--td)">'+d.type+'</span></div>';
     h+='<div style="display:flex;align-items:center;gap:6px">';
     if(rechazos>0)h+='<span style="font-size:11px;color:var(--no)">🔴'+rechazos+'</span>';
-    if(intentadas>0)h+='<span style="font-size:11px;color:#f59e0b">🟡'+intentadas+'</span>';
+    
     h+='<span style="font-size:13px;font-weight:700;color:'+stColor+'">'+hincadas+'/'+totalPilars+'</span>';
     h+='</div></div>';
     h+='<div class="pbar" style="margin-top:6px;height:4px"><div class="pbar-f" style="width:'+pct+'%;background:'+stColor+'"></div></div>';
@@ -1205,6 +1208,11 @@ function rConTracker(a){
   var fila=V.conFila||'motor';
   var pils=cfg[fila];
   var px=fila==='motor'?'fm':'fc';
+  // Get construction master supports
+  var conSupports=getConSupports(code);
+  var motorSup=conSupports.filter(function(s){return s.p.indexOf('W')>=0||s.p.indexOf('MOTORA')>=0});
+  var condSup=conSupports.filter(function(s){return s.p.indexOf('E')>=0||s.p.indexOf('CARDAN')>=0});
+  var filaSup=fila==='motor'?motorSup:condSup;
   var pi=V.conPi||0;
   if(pi>=pils.length)pi=0;
   
@@ -1261,8 +1269,47 @@ function rConTracker(a){
   var curEquipo=con[equipoKey]||'';
   var curMotivo=con[motivoKey]||'';
   
+  // Get design data for current pilar
+  var curSupName=pils[pi];
+  // Map pillar name to construction position
+  var posMap={'4N-MP':'4NW','3N-MP':'3NW','2N-MP':'2NW','1N-MP':'1NW','MP':'MOTORA-W','1S-MP':'1SW','2S-MP':'2SW','3S-MP':'3SW','4S-MP':'4SW',
+    '4N':'4NE','3N':'3NE','2N':'2NE','1N':'1NE','MP-FC':'CARDAN-E','1S':'1SE','2S':'2SE','3S':'3SE','4S':'4SE'};
+  var conPos=posMap[curSupName]||curSupName;
+  var supData=getConMaster(code,conPos);
+  if(!supData&&filaSup.length>pi)supData=filaSup[pi];
+  
   h+='<div class="card" style="margin-top:10px;padding:16px">';
-  h+='<div style="font-weight:700;font-size:16px;margin-bottom:14px">'+pilarName+'</div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+  h+='<div style="font-weight:700;font-size:16px">'+pilarName+'</div>';
+  if(supData)h+='<div style="font-size:11px;padding:4px 10px;border-radius:20px;background:var(--card2);color:var(--tx2)">'+conPos+'</div>';
+  h+='</div>';
+  
+  // Design data
+  if(supData){
+    // GPS proximity check
+    var gpsWarn='';
+    if(GPS&&supData.x&&supData.y){
+      var supLL=utmToLatLon(supData.x,supData.y);
+      var dist=gpsDistM(GPS.lat,GPS.lon,supLL.lat,supLL.lon);
+      if(dist>10)gpsWarn='<div style="padding:8px 12px;border-radius:10px;background:rgba(239,68,68,.15);border:1px solid var(--no);color:var(--no);font-size:12px;font-weight:600;margin-bottom:10px">⚠️ Estás a '+Math.round(dist)+'m del soporte — ¿soporte correcto?</div>';
+      else if(dist>5)gpsWarn='<div style="padding:8px 12px;border-radius:10px;background:rgba(245,158,11,.15);border:1px solid #f59e0b;color:#f59e0b;font-size:12px;margin-bottom:10px">📍 Distancia: '+Math.round(dist)+'m</div>';
+      else gpsWarn='<div style="padding:8px 12px;border-radius:10px;background:rgba(34,197,94,.1);border:1px solid var(--ok);color:var(--ok);font-size:12px;margin-bottom:10px">✅ GPS OK — '+dist.toFixed(1)+'m</div>';
+    }
+    h+=gpsWarn;
+    
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">';
+    h+='<div style="padding:8px;border-radius:8px;background:var(--sf)"><div style="font-size:9px;color:var(--tx3);text-transform:uppercase">Perfil</div><div style="font-size:14px;font-weight:700;margin-top:2px">'+supData.pf+'</div></div>';
+    h+='<div style="padding:8px;border-radius:8px;background:var(--sf)"><div style="font-size:9px;color:var(--tx3);text-transform:uppercase">Cimentación</div><div style="font-size:14px;font-weight:700;margin-top:2px">'+supData.ci+'</div></div>';
+    h+='<div style="padding:8px;border-radius:8px;background:var(--sf)"><div style="font-size:9px;color:var(--tx3);text-transform:uppercase">Prof. Hincado</div><div style="font-size:14px;font-weight:700;margin-top:2px;color:var(--ac)">'+supData.ph.toFixed(2)+' m</div></div>';
+    h+='<div style="padding:8px;border-radius:8px;background:var(--sf)"><div style="font-size:9px;color:var(--tx3);text-transform:uppercase">Prof. Mínima</div><div style="font-size:14px;font-weight:700;margin-top:2px;color:var(--warn)">'+supData.pm.toFixed(2)+' m</div></div>';
+    h+='<div style="padding:8px;border-radius:8px;background:var(--sf)"><div style="font-size:9px;color:var(--tx3);text-transform:uppercase">Altura Máx. Visible</div><div style="font-size:14px;font-weight:700;margin-top:2px">'+supData.am.toFixed(3)+' m</div></div>';
+    h+='<div style="padding:8px;border-radius:8px;background:var(--sf)"><div style="font-size:9px;color:var(--tx3);text-transform:uppercase">Long. Hinca</div><div style="font-size:14px;font-weight:700;margin-top:2px">'+supData.lh.toFixed(3)+' m</div></div>';
+    h+='<div style="padding:8px;border-radius:8px;background:var(--sf)"><div style="font-size:9px;color:var(--tx3);text-transform:uppercase">Z Terreno</div><div style="font-size:14px;font-weight:700;margin-top:2px">'+supData.z.toFixed(2)+' m</div></div>';
+    h+='<div style="padding:8px;border-radius:8px;background:var(--sf)"><div style="font-size:9px;color:var(--tx3);text-transform:uppercase">Cota Hinca</div><div style="font-size:14px;font-weight:700;margin-top:2px">'+supData.co.toFixed(2)+' m</div></div>';
+    h+='</div>';
+    
+    h+='<div style="font-size:10px;color:var(--tx3);margin-bottom:14px">UTM: '+supData.x.toFixed(2)+', '+supData.y.toFixed(2)+'</div>';
+  }
   
   // Estado buttons
   h+='<div style="font-size:11px;font-weight:600;color:var(--td);margin-bottom:6px">ESTADO DE HINCA</div>';
@@ -1382,6 +1429,110 @@ function flushConSync(code){
   };
   
   doSync(payload);
+}
+
+
+function countMod(code){
+  var td=getTD(code);if(!td.mod)td.mod={};
+  var f=0,t=0,bad=0;
+  MOD_GROUPS.forEach(function(grp){
+    grp.items.forEach(function(item){
+      t++;
+      var v=td.mod[item.id];
+      if(v!=null){f++;if(v!==item.def)bad++}
+    });
+  });
+  return {f:f,t:t,bad:bad};
+}
+
+function rMod(code,td){
+  if(!td.mod)td.mod={};
+  var mc=countMod(code);
+  var h='<div style="margin-top:10px">';
+
+  h+='<div class="card" style="padding:14px;margin-bottom:10px;text-align:center">';
+  h+='<div style="font-weight:700;font-size:14px">Montaje de Módulos</div>';
+  h+='<div class="pbar" style="margin:8px 0;height:8px"><div class="pbar-f'+(mc.f>=mc.t&&mc.bad===0?' done':'')+'" style="width:'+(mc.t>0?Math.round(mc.f/mc.t*100):0)+'%;background:'+(mc.bad>0?'var(--no)':'var(--ac)')+'"></div></div>';
+  h+='<div style="font-size:12px;color:var(--td)">'+mc.f+'/'+mc.t+(mc.bad>0?' · <span style=color:var(--no)>'+mc.bad+' NO OK</span>':'')+'</div>';
+  h+='</div>';
+
+  MOD_GROUPS.forEach(function(grp){
+    h+='<div class="card" style="padding:14px;margin-bottom:8px">';
+    h+='<div style="font-weight:700;font-size:12px;color:var(--ac);margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">'+grp.label+'</div>';
+
+    grp.items.forEach(function(item){
+      var v=td.mod[item.id];
+      if(v==null){v=item.def;td.mod[item.id]=v}
+      h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">';
+      h+='<div style="flex:1;font-size:13px">'+item.label+'</div>';
+      h+='<div style="display:flex;gap:4px">';
+      ['SI','NO'].forEach(function(opt){
+        var sel=(v===opt);
+        var bg=sel?(opt==='SI'?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'):'var(--sf)';
+        var bd=sel?(opt==='SI'?'var(--ok)':'var(--no)'):'var(--bd)';
+        var clr=sel?(opt==='SI'?'var(--ok)':'var(--no)'):'var(--td)';
+        h+='<button onclick="setModV(\''+code+'\',\''+item.id+'\',\''+opt+'\')" style="padding:6px 14px;border-radius:8px;border:2px solid '+bd+';background:'+bg+';color:'+clr+';font-weight:700;font-size:12px;cursor:pointer">'+opt+'</button>';
+      });
+      h+='</div></div>';
+    });
+
+    h+='</div>';
+  });
+
+  h+='</div>';
+  return h;
+}
+
+function setModV(code,key,val){
+  if(isLocked(code))return;
+  var td=getTD(code);if(!td.mod)td.mod={};
+  td.mod[key]=val;
+  CHANGE_Q.push({fid:key,fv:val,fp:'Módulos',ff:'Módulos'});
+  sv();syncTracker(code);R();
+}
+
+
+// Get construction master data for a tracker's support
+function getConMaster(code,pos){
+  if(typeof MASTER_CON==='undefined')return null;
+  var supports=MASTER_CON[code];
+  if(!supports)return null;
+  return supports.find(function(s){return s.p===pos})||null;
+}
+
+// Get all supports for a tracker from construction master
+function getConSupports(code){
+  if(typeof MASTER_CON==='undefined')return [];
+  return MASTER_CON[code]||[];
+}
+
+// UTM Zone 30N to lat/lon (approximate for ATALAYA area ~41.6N)
+function utmToLatLon(x,y){
+  // Simplified conversion for zone 30N
+  var k0=0.9996,a=6378137,e=0.00669438,e2=e/(1-e);
+  var M=y/k0,mu=M/(a*(1-e/4-3*e*e/64));
+  var e1=(1-Math.sqrt(1-e))/(1+Math.sqrt(1-e));
+  var phi=mu+e1*(3/2-27*e1*e1/32)*Math.sin(2*mu);
+  phi+=e1*e1*(21/16-55*e1*e1/32)*Math.sin(4*mu);
+  var N=a/Math.sqrt(1-e*Math.sin(phi)*Math.sin(phi));
+  var T=Math.tan(phi)*Math.tan(phi);
+  var C2=e2*Math.cos(phi)*Math.cos(phi);
+  var R2=a*(1-e)/Math.pow(1-e*Math.sin(phi)*Math.sin(phi),1.5);
+  var D=(x-500000)/(N*k0);
+  var lat=phi-(N*Math.tan(phi)/R2)*(D*D/2);
+  var lon=((D-(1+2*T+C2)*D*D*D/6)/Math.cos(phi));
+  lon=lon*180/Math.PI+(-3); // Central meridian zone 30 = -3
+  lat=lat*180/Math.PI;
+  return {lat:lat,lon:lon};
+}
+
+// Distance between two lat/lon points in meters
+function gpsDistM(lat1,lon1,lat2,lon2){
+  var R=6371000;
+  var dLat=(lat2-lat1)*Math.PI/180;
+  var dLon=(lon2-lon1)*Math.PI/180;
+  var a2=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a2),Math.sqrt(1-a2));
 }
 
 
@@ -1550,12 +1701,13 @@ function rTracker(a){
   h+='<div class="gps-i">📍 Proyecto: <b>'+(m.mx?.toFixed(3)||'—')+'</b>, <b>'+(m.my?.toFixed(3)||'—')+'</b></div>';
   h+='<div class="gps-i gps-live">'+(GPS?'<span class="gps-d"></span> GPS: '+GPS.lat.toFixed(6)+', '+GPS.lon.toFixed(6)+' · ±'+Math.round(GPS.acc)+'m':'📍 Esperando GPS...')+'</div>';
   const cP=c.cimT>0?Math.round(c.cimF/c.cimT*100):0,mP=c.montT>0?Math.round(c.montF/c.montT*100):0;
-  h+='<div style="display:flex;gap:6px;margin-bottom:10px">';
-  [{id:'cim',l:'Cimentaciones',p:cP,f:c.cimF,t:c.cimT},{id:'mont',l:'Montaje',p:mP,f:c.montF,t:c.montT}].forEach(x=>{
-    h+='<button onclick="V.tab=\''+x.id+'\';V.pi=0;R()" style="flex:1;padding:10px;border-radius:10px;border:2px solid '+(V.tab===x.id?'var(--ac)':'var(--bd)')+';background:'+(V.tab===x.id?'var(--sf2)':'transparent')+'"><div style="font-size:12px;font-weight:700;color:'+(V.tab===x.id?'var(--ac)':'var(--td)')+'">'+x.l+'</div><div class="prog" style="margin-top:5px"><div class="prog-b '+(x.p===100?'done':'')+'" style="width:'+x.p+'%"></div></div><div style="font-size:10px;color:var(--td);margin-top:3px">'+x.f+'/'+x.t+'</div></button>';
+  var modC=countMod(code);var moP=modC.t>0?Math.round(modC.f/modC.t*100):0;
+  h+='<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">';
+  [{id:'cim',l:'Cimentaciones',p:cP,f:c.cimF,t:c.cimT},{id:'mont',l:'Montaje',p:mP,f:c.montF,t:c.montT},{id:'mod',l:'Módulos',p:moP,f:modC.f,t:modC.t}].forEach(x=>{
+    h+='<button onclick="V.tab=\''+x.id+'\';V.pi=0;R()" style="flex:1;min-width:90px;padding:10px;border-radius:10px;border:2px solid '+(V.tab===x.id?'var(--ac)':'var(--bd)')+';background:'+(V.tab===x.id?'var(--sf2)':'transparent')+'"><div style="font-size:12px;font-weight:700;color:'+(V.tab===x.id?'var(--ac)':'var(--td)')+'">'+x.l+'</div><div class="prog" style="margin-top:5px"><div class="prog-b '+(x.p===100?'done':'')+'" style="width:'+x.p+'%"></div></div><div style="font-size:10px;color:var(--td);margin-top:3px">'+x.f+'/'+x.t+'</div></button>';
   });
   h+='</div>';
-  h+=V.tab==='cim'?rCim(code,td,m,cfg):rMont(code,td);
+  h+=V.tab==='cim'?rCim(code,td,m,cfg):V.tab==='mod'?rMod(code,td):rMont(code,td);
   h+='<div style="margin-top:16px"><div class="stitle">Observaciones</div><textarea class="ta" rows="3" placeholder="Observaciones..." oninput="if(!isLocked(\''+code+'\')){getTD(\''+code+'\').obs=this.value;sv();syncTracker(\''+code+'\')}" '+(td.locked?'readonly':'')+' >'+(td.obs||'')+'</textarea></div></div>';
   a.innerHTML=h;
 }
@@ -1725,3 +1877,30 @@ if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.ser
 </script>
 </body>
 </html>
+// MODULE MOUNTING CHECKS (per tracker, not per pilar)
+var MOD_GROUPS=[
+  {id:'vg',label:'Vigas + Módulos',items:[
+    {id:'mod_disp_vigas',label:'Disposición adecuada vigas con módulo',def:'SI'},
+    {id:'mod_union_sb',label:'Unión SB-Módulo solar',def:'SI'}
+  ]},
+  {id:'to',label:'Tornillería',items:[
+    {id:'mod_torn_correcta',label:'Tornillería correcta',def:'SI'},
+    {id:'mod_par_apriete',label:'Par de apriete (10 N.m ±10%)',def:'SI'},
+    {id:'mod_marcado_par',label:'Marcado correcto del par de apriete',def:'SI'}
+  ]},
+  {id:'al',label:'Alineación',items:[
+    {id:'mod_alin_horiz',label:'Alineación horizontal',def:'SI'},
+    {id:'mod_alin_vigas',label:'Alineación de vigas secundarias',def:'SI'}
+  ]},
+  {id:'cv',label:'Comprobaciones Visuales',items:[
+    {id:'mod_sep_paneles',label:'Separación entre paneles constante',def:'SI'},
+    {id:'mod_pos_defensa',label:'Tracker en posición de defensa',def:'SI'},
+    {id:'mod_apretados',label:'Módulos apretados',def:'SI'},
+    {id:'mod_ubicacion',label:'Ubicación correcta (potencia y posición)',def:'SI'},
+    {id:'mod_sin_roturas',label:'Módulos sin roturas',def:'SI'},
+    {id:'mod_marc_torn',label:'Marcado correcto tornillería',def:'SI'},
+    {id:'mod_galv_torn',label:'Galvanizado correcto tornillería',def:'SI'}
+  ]}
+];
+
+
