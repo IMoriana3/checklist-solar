@@ -1536,6 +1536,33 @@ function gpsDistM(lat1,lon1,lat2,lon2){
 }
 
 
+// MODULE MOUNTING CHECKS (per tracker, not per pilar)
+var MOD_GROUPS=[
+  {id:'vg',label:'Vigas + Módulos',items:[
+    {id:'mod_disp_vigas',label:'Disposición adecuada vigas con módulo',def:'SI'},
+    {id:'mod_union_sb',label:'Unión SB-Módulo solar',def:'SI'}
+  ]},
+  {id:'to',label:'Tornillería',items:[
+    {id:'mod_torn_correcta',label:'Tornillería correcta',def:'SI'},
+    {id:'mod_par_apriete',label:'Par de apriete (10 N.m ±10%)',def:'SI'},
+    {id:'mod_marcado_par',label:'Marcado correcto del par de apriete',def:'SI'}
+  ]},
+  {id:'al',label:'Alineación',items:[
+    {id:'mod_alin_horiz',label:'Alineación horizontal',def:'SI'},
+    {id:'mod_alin_vigas',label:'Alineación de vigas secundarias',def:'SI'}
+  ]},
+  {id:'cv',label:'Comprobaciones Visuales',items:[
+    {id:'mod_sep_paneles',label:'Separación entre paneles constante',def:'SI'},
+    {id:'mod_pos_defensa',label:'Tracker en posición de defensa',def:'SI'},
+    {id:'mod_apretados',label:'Módulos apretados',def:'SI'},
+    {id:'mod_ubicacion',label:'Ubicación correcta (potencia y posición)',def:'SI'},
+    {id:'mod_sin_roturas',label:'Módulos sin roturas',def:'SI'},
+    {id:'mod_marc_torn',label:'Marcado correcto tornillería',def:'SI'},
+    {id:'mod_galv_torn',label:'Galvanizado correcto tornillería',def:'SI'}
+  ]}
+];
+
+
 function R(){({setup:rSetup,home:rHome,select:rSelect,tracker:rTracker,dashboard:rDashboard,modesel:rModeSel,conselect:rConSelect,contractor:rConTracker,config:rConfig})[V.screen](document.getElementById('app'));setTimeout(()=>showSync(''),50)}
 
 // SETUP
@@ -1877,30 +1904,4 @@ if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.ser
 </script>
 </body>
 </html>
-// MODULE MOUNTING CHECKS (per tracker, not per pilar)
-var MOD_GROUPS=[
-  {id:'vg',label:'Vigas + Módulos',items:[
-    {id:'mod_disp_vigas',label:'Disposición adecuada vigas con módulo',def:'SI'},
-    {id:'mod_union_sb',label:'Unión SB-Módulo solar',def:'SI'}
-  ]},
-  {id:'to',label:'Tornillería',items:[
-    {id:'mod_torn_correcta',label:'Tornillería correcta',def:'SI'},
-    {id:'mod_par_apriete',label:'Par de apriete (10 N.m ±10%)',def:'SI'},
-    {id:'mod_marcado_par',label:'Marcado correcto del par de apriete',def:'SI'}
-  ]},
-  {id:'al',label:'Alineación',items:[
-    {id:'mod_alin_horiz',label:'Alineación horizontal',def:'SI'},
-    {id:'mod_alin_vigas',label:'Alineación de vigas secundarias',def:'SI'}
-  ]},
-  {id:'cv',label:'Comprobaciones Visuales',items:[
-    {id:'mod_sep_paneles',label:'Separación entre paneles constante',def:'SI'},
-    {id:'mod_pos_defensa',label:'Tracker en posición de defensa',def:'SI'},
-    {id:'mod_apretados',label:'Módulos apretados',def:'SI'},
-    {id:'mod_ubicacion',label:'Ubicación correcta (potencia y posición)',def:'SI'},
-    {id:'mod_sin_roturas',label:'Módulos sin roturas',def:'SI'},
-    {id:'mod_marc_torn',label:'Marcado correcto tornillería',def:'SI'},
-    {id:'mod_galv_torn',label:'Galvanizado correcto tornillería',def:'SI'}
-  ]}
-];
-
 
