@@ -168,12 +168,214 @@ function loadData(){
 }
 
 function render(d){
+  var h='';
+  
+  // Tabs
+  h+='<div style="display:flex;gap:0;padding:16px 28px 0;border-bottom:1px solid var(--bd)">';
+  h+='<button id="tab-con" onclick="switchTab(\'con\')" style="padding:12px 24px;font-size:14px;font-weight:600;border:none;cursor:pointer;border-bottom:2px solid var(--info);color:var(--info);background:transparent">🏗️ Construcción</button>';
+  h+='<button id="tab-cal" onclick="switchTab(\'cal\')" style="padding:12px 24px;font-size:14px;font-weight:600;border:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--tx2);background:transparent">✅ Calidad</button>';
+  h+='</div>';
+  
+  h+='<div id="panel-con"></div>';
+  h+='<div id="panel-cal" style="display:none"></div>';
+  
+  document.getElementById('content').innerHTML=h;
+  
+  renderCon(d);
+  renderCal(d);
+}
+
+function switchTab(tab){
+  document.getElementById('panel-con').style.display=tab==='con'?'block':'none';
+  document.getElementById('panel-cal').style.display=tab==='cal'?'block':'none';
+  document.getElementById('tab-con').style.borderBottomColor=tab==='con'?'var(--info)':'transparent';
+  document.getElementById('tab-con').style.color=tab==='con'?'var(--info)':'var(--tx2)';
+  document.getElementById('tab-cal').style.borderBottomColor=tab==='cal'?'var(--ac)':'transparent';
+  document.getElementById('tab-cal').style.color=tab==='cal'?'var(--ac)':'var(--tx2)';
+}
+
+// ============================================================
+// CONSTRUCTION TAB
+// ============================================================
+function renderCon(d){
+  var el=document.getElementById('panel-con');
+  var cn=d.con||{};
+  var h='';
+  
+  var totalPilars=cn.totalPilars||0;
+  var hincadas=cn.hincadas||0;
+  var rechazos=cn.rechazos||0;
+  var intentadas=cn.intentadas||0;
+  var pendientes=cn.pendientes||0;
+  var pctH=totalPilars>0?Math.round(hincadas/totalPilars*100):0;
+  
+  // KPI Cards
+  h+='<div class="grid g4">';
+  h+=kpiCard('Hincas Registradas',totalPilars,'','','var(--tx2)');
+  h+=kpiCard('Hincadas OK',hincadas,totalPilars,pctH,'var(--ac)');
+  h+=kpiCard('Rechazos',rechazos,totalPilars,totalPilars>0?Math.round(rechazos/totalPilars*100):0,'var(--err)');
+  h+=kpiCard('Intentadas',intentadas,totalPilars,totalPilars>0?Math.round(intentadas/totalPilars*100):0,'var(--warn)');
+  h+='</div>';
+  
+  // Status bar + Daily chart
+  h+='<div class="grid g2">';
+  
+  // Status
+  h+='<div class="card"><div class="card-t">Estado de Hincado</div>';
+  h+='<div style="display:flex;justify-content:space-around;text-align:center;margin:16px 0 8px">';
+  h+=statusNum(hincadas,'Hincadas','var(--ac)');
+  h+=statusNum(intentadas,'Intentadas','var(--warn)');
+  h+=statusNum(rechazos,'Rechazos','var(--err)');
+  h+=statusNum(pendientes,'Pendientes','var(--tx3)');
+  h+='</div>';
+  h+='<div class="status-bar">';
+  if(totalPilars>0){
+    h+='<div style="width:'+(hincadas/totalPilars*100)+'%;background:var(--ac);color:#000">'+hincadas+'</div>';
+    h+='<div style="width:'+(intentadas/totalPilars*100)+'%;background:var(--warn);color:#000">'+intentadas+'</div>';
+    h+='<div style="width:'+(rechazos/totalPilars*100)+'%;background:var(--err);color:#fff">'+rechazos+'</div>';
+    var restPct=100-(hincadas+intentadas+rechazos)/totalPilars*100;if(restPct<0)restPct=0;
+    h+='<div style="width:'+restPct+'%;background:var(--card2);color:var(--tx3)">'+pendientes+'</div>';
+  }
+  h+='</div>';
+  h+='<div style="display:flex;gap:14px;margin-top:10px;font-size:10px;color:var(--tx3)">';
+  h+='<span style="color:var(--ac)">● Hincadas</span><span style="color:var(--warn)">● Intentadas</span><span style="color:var(--err)">● Rechazos</span><span>● Pendientes</span>';
+  h+='</div></div>';
+  
+  // Daily chart
+  h+='<div class="card"><div class="card-t">Hincas por Día</div><div class="chart-wrap"><canvas id="conDailyChart"></canvas></div></div>';
+  h+='</div>';
+  
+  // Equipo + Tipo + PV
+  h+='<div class="grid g3">';
+  
+  // By Equipo
+  h+='<div class="card"><div class="card-t">Por Equipo / Máquina</div>';
+  var equipos=Object.keys(cn.byEquipo||{}).sort();
+  if(equipos.length===0)h+='<div style="padding:16px;text-align:center;color:var(--tx3);font-size:12px">Sin datos</div>';
+  else equipos.forEach(function(eq){
+    var e=cn.byEquipo[eq];
+    var total=e.hincadas+e.rechazos+e.intentadas;
+    h+='<div class="tec-row">';
+    h+='<div class="tec-ava" style="background:var(--info);font-size:16px">🔨</div>';
+    h+='<div class="tec-info"><div class="tec-name">'+eq+'</div>';
+    h+='<div class="tec-stats">'+e.hincadas+' hincadas'+(e.rechazos>0?' · '+e.rechazos+' rechazos':'')+'</div></div>';
+    h+='<div style="font-size:16px;font-weight:700;color:var(--ac)">'+total+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  
+  // By Tipo
+  h+='<div class="card"><div class="card-t">Por Tipo de Hinca</div>';
+  var tipos=Object.keys(cn.byTipo||{}).sort();
+  var tipoIcons={'directa':'🔨','zapata':'🧱','predrill':'🕳️'};
+  if(tipos.length===0)h+='<div style="padding:16px;text-align:center;color:var(--tx3);font-size:12px">Sin datos</div>';
+  else {
+    var tipoTotal=tipos.reduce(function(a,t){return a+(cn.byTipo[t]||0)},0);
+    tipos.forEach(function(tipo){
+      var n=cn.byTipo[tipo];
+      var pct=tipoTotal>0?Math.round(n/tipoTotal*100):0;
+      h+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)">';
+      h+='<span style="font-size:20px">'+(tipoIcons[tipo]||'📌')+'</span>';
+      h+='<div style="flex:1"><div style="font-weight:600;font-size:13px">'+tipo+'</div>';
+      h+='<div class="pbar" style="height:4px;margin-top:4px"><div class="pbar-f" style="width:'+pct+'%;background:var(--info)"></div></div></div>';
+      h+='<div style="font-size:14px;font-weight:700">'+n+' <span style="font-size:10px;color:var(--tx2)">('+pct+'%)</span></div>';
+      h+='</div>';
+    });
+  }
+  h+='</div>';
+  
+  // By PV
+  h+='<div class="card"><div class="card-t">Hincado por PV</div>';
+  var pvs=Object.keys(cn.byPv||{}).sort();
+  if(pvs.length===0)h+='<div style="padding:16px;text-align:center;color:var(--tx3);font-size:12px">Sin datos</div>';
+  else pvs.forEach(function(pv){
+    var p=cn.byPv[pv];
+    var pp=p.total>0?Math.round(p.hincadas/p.total*100):0;
+    var barColor=p.rechazos>0?'var(--err)':pp>=100?'var(--ac)':'var(--info)';
+    h+='<div class="pv-row">';
+    h+='<div class="pv-name">'+pv+'</div>';
+    h+='<div class="pv-bar-wrap"><div class="pv-bar-f" style="width:'+pp+'%;background:'+barColor+'"></div></div>';
+    h+='<div class="pv-pct" style="color:'+barColor+'">'+pp+'%</div>';
+    h+='<div class="pv-nums">'+p.hincadas+'/'+p.total+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  
+  h+='</div>';
+  
+  // Rechazos list
+  var rList=cn.rechazosList||[];
+  if(rList.length>0){
+    h+='<div class="grid g1" style="grid-template-columns:1fr">';
+    h+='<div class="card"><div class="card-t" style="color:var(--err)">Rechazos ('+rList.length+')</div>';
+    rList.forEach(function(r){
+      h+='<div class="inc-item">';
+      h+='<div class="inc-tr">'+r.t+' · '+r.p+' <span class="inc-pv">'+r.f+'</span></div>';
+      h+='<div class="inc-bad">'+r.motivo+'</div>';
+      h+='<div style="display:flex;gap:12px;margin-top:3px;font-size:10px;color:var(--tx3)">';
+      if(r.equipo)h+='<span>🔨 '+r.equipo+'</span>';
+      if(r.tec)h+='<span>👤 '+r.tec+'</span>';
+      h+='</div></div>';
+    });
+    h+='</div></div>';
+  }
+  
+  el.innerHTML=h;
+  setTimeout(function(){drawConDaily(cn.byDay||{})},100);
+}
+
+function drawConDaily(byDay){
+  var cv=document.getElementById('conDailyChart');
+  if(!cv)return;
+  cv.width=cv.offsetWidth*2;cv.height=cv.offsetHeight*2;
+  var ctx=cv.getContext('2d');
+  ctx.scale(2,2);
+  var W=cv.offsetWidth,H=cv.offsetHeight;
+  var pad={l:40,r:10,t:10,b:28};
+  var cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
+  
+  var days=Object.keys(byDay).sort().slice(-30);
+  if(days.length===0){ctx.fillStyle='#565a6e';ctx.font='12px DM Sans';ctx.textAlign='center';ctx.fillText('Sin datos',W/2,H/2);return}
+  var vals=days.map(function(d){return byDay[d]});
+  var maxV=Math.max.apply(null,vals)||1;
+  var barW=Math.max((cW/days.length)-3,4);
+  
+  ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;
+  for(var i=0;i<=4;i++){
+    var y=pad.t+cH-cH*(i/4);
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+    ctx.fillStyle='#565a6e';ctx.font='500 9px JetBrains Mono';ctx.textAlign='right';
+    ctx.fillText(Math.round(maxV*i/4),pad.l-6,y+3);
+  }
+  
+  days.forEach(function(day,i){
+    var v=vals[i];
+    var bH=cH*(v/maxV);
+    var x=pad.l+i*(cW/days.length)+(cW/days.length-barW)/2;
+    var y=pad.t+cH-bH;
+    var grd=ctx.createLinearGradient(x,y,x,pad.t+cH);
+    grd.addColorStop(0,'rgba(59,130,246,0.9)');
+    grd.addColorStop(1,'rgba(59,130,246,0.2)');
+    ctx.fillStyle=grd;
+    var r=Math.min(barW/2,3);
+    ctx.beginPath();ctx.moveTo(x,pad.t+cH);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.arcTo(x+barW,y,x+barW,y+r,r);ctx.lineTo(x+barW,pad.t+cH);ctx.fill();
+    if(days.length<=15||i%Math.ceil(days.length/10)===0){
+      ctx.fillStyle='#565a6e';ctx.font='500 8px JetBrains Mono';ctx.textAlign='center';
+      ctx.fillText(day.substring(5),x+barW/2,H-6);
+    }
+  });
+}
+
+// ============================================================
+// QUALITY TAB
+// ============================================================
+function renderCal(d){
+  var el=document.getElementById('panel-cal');
   var pct=d.total>0?Math.round(d.done/d.total*100):0;
   var started=0;Object.values(d.byTec).forEach(function(t){started+=t.started});
   var inProgress=started-d.done;
   var pending=d.total-started;
   
-  // Count total piles from byDay
   var totalChanges=0,workDays=0;
   var days=Object.keys(d.byDay).sort();
   days.forEach(function(day){totalChanges+=d.byDay[day].changes;workDays++});
@@ -189,7 +391,7 @@ function render(d){
   h+=kpiCard('Pendientes',pending,d.total,d.total>0?Math.round(pending/d.total*100):0,'var(--tx3)');
   h+='</div>';
   
-  // Calendar + Daily Piles
+  // Calendar + Daily
   h+='<div class="grid g2">';
   h+='<div class="card"><div class="card-t">Calendario de Actividad</div><div id="heatmap-wrap"></div></div>';
   h+='<div class="card"><div class="card-t">Actividad Diaria</div><div class="chart-wrap"><canvas id="dailyChart"></canvas></div></div>';
@@ -198,7 +400,6 @@ function render(d){
   // Status + Technicians
   h+='<div class="grid g2">';
   
-  // Tracker Status
   h+='<div class="card"><div class="card-t">Estado de Trackers</div>';
   h+='<div style="display:flex;justify-content:space-around;text-align:center;margin:16px 0 8px">';
   h+=statusNum(d.done,'Validados','var(--ac)');
@@ -216,11 +417,10 @@ function render(d){
   h+='<div style="width:'+w3+'%;background:var(--err);color:#fff">'+d.issues+'</div>';
   h+='<div style="width:'+w4+'%;background:var(--card2);color:var(--tx3)">'+pending+'</div>';
   h+='</div>';
-  h+='<div style="display:flex;gap:16px;margin-top:12px;font-size:10px;color:var(--tx3)">';
+  h+='<div style="display:flex;gap:14px;margin-top:10px;font-size:10px;color:var(--tx3)">';
   h+='<span>● Validados</span><span style="color:var(--warn)">● En curso</span><span style="color:var(--err)">● Incidencias</span><span>● Pendientes</span>';
   h+='</div></div>';
   
-  // Technicians
   h+='<div class="card"><div class="card-t">Por Técnico</div>';
   var tecs=Object.keys(d.byTec).sort(function(a,b){return d.byTec[b].done-d.byTec[a].done});
   var colors=['#3ecf8e','#3b82f6','#a78bfa','#f5a623','#ef4444','#ec4899','#06b6d4'];
@@ -241,36 +441,28 @@ function render(d){
   
   // PV Progress + Incidents
   h+='<div class="grid g2">';
-  
-  // PV/Subcampo
   h+='<div class="card"><div class="card-t">Avance por PV / Subcampo</div>';
   var pvs=Object.keys(d.byPv).sort();
   pvs.forEach(function(pv){
     var p=d.byPv[pv];
     var pp=p.total>0?Math.round(p.done/p.total*100):0;
     var barColor=p.issues>0?'var(--err)':pp>=100?'var(--ac)':'var(--info)';
-    h+='<div class="pv-row">';
-    h+='<div class="pv-name">'+pv+'</div>';
+    h+='<div class="pv-row"><div class="pv-name">'+pv+'</div>';
     h+='<div class="pv-bar-wrap"><div class="pv-bar-f" style="width:'+pp+'%;background:'+barColor+'"></div></div>';
     h+='<div class="pv-pct" style="color:'+barColor+'">'+pp+'%</div>';
-    h+='<div class="pv-nums">'+p.done+'/'+p.total+'</div>';
-    h+='</div>';
+    h+='<div class="pv-nums">'+p.done+'/'+p.total+'</div></div>';
   });
   h+='</div>';
   
-  // Incidents
   h+='<div class="card"><div class="card-t" style="color:var(--err)">Incidencias ('+d.incidents.length+')</div>';
   if(d.incidents.length===0)h+='<div style="padding:20px;text-align:center;color:var(--tx3);font-size:13px">Sin incidencias</div>';
   else d.incidents.slice(0,20).forEach(function(inc){
-    h+='<div class="inc-item">';
-    h+='<div class="inc-tr">'+inc.t+' <span class="inc-pv">'+inc.pv+'</span></div>';
+    h+='<div class="inc-item"><div class="inc-tr">'+inc.t+' <span class="inc-pv">'+inc.pv+'</span></div>';
     h+='<div class="inc-bad">'+inc.bad+'</div>';
-    if(inc.te)h+='<div class="inc-tec">👤 '+inc.te+'</div>';
-    h+='</div>';
+    if(inc.te)h+='<div class="inc-tec">👤 '+inc.te+'</div></div>';
   });
   if(d.incidents.length>20)h+='<div style="text-align:center;font-size:11px;color:var(--tx3);margin-top:8px">+'+(d.incidents.length-20)+' más</div>';
   h+='</div>';
-  
   h+='</div>';
   
   // Counters row
@@ -280,152 +472,11 @@ function render(d){
   h+='<div class="card" style="text-align:center"><div class="card-t">Días Trabajados</div><div class="card-v mono">'+workDays+'</div></div>';
   h+='</div>';
   
-  document.getElementById('content').innerHTML=h;
+  el.innerHTML=h;
   
-  // Draw heatmap
   setTimeout(function(){drawHeatmap(d.byDay)},50);
-  // Draw daily chart
   setTimeout(function(){drawDaily(d.byDay)},100);
 }
-
-function kpiCard(title,value,total,pct,color){
-  var h='<div class="card">';
-  h+='<div class="card-t">'+title+'</div>';
-  h+='<div class="card-v" style="color:'+color+'">'+value.toLocaleString()+'</div>';
-  if(total)h+='<div class="card-s">/ '+total.toLocaleString()+'</div>';
-  if(pct!==''&&pct!==undefined)h+='<div class="card-pct" style="background:'+color+'22;color:'+color+'">'+pct+'%</div>';
-  if(total)h+='<div class="pbar"><div class="pbar-f" style="width:'+pct+'%;background:'+color+'"></div></div>';
-  h+='</div>';
-  return h;
-}
-
-function statusNum(n,label,color){
-  return '<div><div style="font-size:28px;font-weight:700;color:'+color+'">'+n+'</div><div style="font-size:10px;color:var(--tx2)">'+label+'</div></div>';
-}
-
-function drawHeatmap(byDay){
-  var wrap=document.getElementById('heatmap-wrap');
-  if(!wrap)return;
-  
-  // Build 52 weeks from today backwards
-  var today=new Date();
-  var cells=[];
-  for(var i=364;i>=0;i--){
-    var d=new Date(today);d.setDate(d.getDate()-i);
-    var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    cells.push({date:d,key:key,day:d.getDay(),val:byDay[key]?byDay[key].changes:0});
-  }
-  
-  var maxVal=Math.max.apply(null,cells.map(function(c){return c.val}))||1;
-  var totalMarks=cells.reduce(function(a,c){return a+c.val},0);
-  
-  // Group by weeks
-  var weeks=[];var week=[];
-  cells.forEach(function(c){
-    if(c.day===0&&week.length>0){weeks.push(week);week=[]}
-    week.push(c);
-  });
-  if(week.length>0)weeks.push(week);
-  
-  // Months labels
-  var months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  
-  var h='<div style="display:flex;align-items:flex-start">';
-  h+='<div class="hm-labels"><span></span><span>Lun</span><span></span><span>Mié</span><span></span><span>Vie</span><span></span></div>';
-  h+='<div style="overflow-x:auto"><div class="heatmap">';
-  
-  var lastMonth=-1;
-  weeks.forEach(function(wk){
-    h+='<div class="hm-col">';
-    // Check month label
-    var firstCell=wk[0];
-    if(firstCell.date.getMonth()!==lastMonth){
-      lastMonth=firstCell.date.getMonth();
-    }
-    // Pad start of first week
-    for(var p=0;p<wk[0].day;p++)h+='<div style="width:13px;height:13px"></div>';
-    wk.forEach(function(c){
-      var intensity=c.val>0?Math.max(0.2,Math.min(1,c.val/maxVal)):0;
-      var bg=c.val===0?'var(--bg)':'rgba(62,207,142,'+intensity+')';
-      var title=c.key+': '+c.val+' registros';
-      h+='<div class="hm-cell" style="background:'+bg+'" data-tip="'+title+'" onmouseenter="showTip(event,this)" onmouseleave="hideTip()"></div>';
-    });
-    h+='</div>';
-  });
-  h+='</div></div></div>';
-  
-  h+='<div class="hm-legend"><span>'+totalMarks+' registros en 2026</span><span style="margin-left:auto">Menos</span>';
-  [0,.2,.4,.7,1].forEach(function(i){
-    h+='<div class="sq" style="background:'+(i===0?'var(--bg)':'rgba(62,207,142,'+i+')')+'"></div>';
-  });
-  h+='<span>Más</span></div>';
-  
-  wrap.innerHTML=h;
-}
-
-function drawDaily(byDay){
-  var cv=document.getElementById('dailyChart');
-  if(!cv)return;
-  cv.width=cv.offsetWidth*2;cv.height=cv.offsetHeight*2;
-  var ctx=cv.getContext('2d');
-  ctx.scale(2,2);
-  var W=cv.offsetWidth,H=cv.offsetHeight;
-  var pad={l:40,r:10,t:10,b:28};
-  var cW=W-pad.l-pad.r,cH=H-pad.t-pad.b;
-  
-  var days=Object.keys(byDay).sort().slice(-30);
-  if(days.length===0)return;
-  var vals=days.map(function(d){return byDay[d].changes});
-  var maxV=Math.max.apply(null,vals)||1;
-  var barW=Math.max((cW/days.length)-3,4);
-  
-  // Grid
-  ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;
-  for(var i=0;i<=4;i++){
-    var y=pad.t+cH-cH*(i/4);
-    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
-    ctx.fillStyle='#565a6e';ctx.font='500 9px JetBrains Mono';ctx.textAlign='right';
-    ctx.fillText(Math.round(maxV*i/4),pad.l-6,y+3);
-  }
-  
-  // Bars with gradient
-  days.forEach(function(day,i){
-    var v=vals[i];
-    var bH=cH*(v/maxV);
-    var x=pad.l+i*(cW/days.length)+(cW/days.length-barW)/2;
-    var y=pad.t+cH-bH;
-    
-    var grd=ctx.createLinearGradient(x,y,x,pad.t+cH);
-    grd.addColorStop(0,'rgba(62,207,142,0.9)');
-    grd.addColorStop(1,'rgba(62,207,142,0.2)');
-    ctx.fillStyle=grd;
-    
-    // Rounded top
-    var r=Math.min(barW/2,3);
-    ctx.beginPath();
-    ctx.moveTo(x,pad.t+cH);
-    ctx.lineTo(x,y+r);
-    ctx.arcTo(x,y,x+r,y,r);
-    ctx.arcTo(x+barW,y,x+barW,y+r,r);
-    ctx.lineTo(x+barW,pad.t+cH);
-    ctx.fill();
-    
-    // Date labels
-    if(days.length<=15||i%Math.ceil(days.length/10)===0){
-      ctx.fillStyle='#565a6e';ctx.font='500 8px JetBrains Mono';ctx.textAlign='center';
-      ctx.fillText(day.substring(5),x+barW/2,H-6);
-    }
-  });
-}
-
-function showTip(e,el){
-  var tip=document.getElementById('tip');
-  tip.textContent=el.dataset.tip;
-  tip.style.display='block';
-  tip.style.left=(e.clientX+10)+'px';
-  tip.style.top=(e.clientY-30)+'px';
-}
-function hideTip(){document.getElementById('tip').style.display='none'}
 
 // Auto-refresh every 5 minutes
 loadData();

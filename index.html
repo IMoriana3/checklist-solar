@@ -752,7 +752,6 @@ function goBack(code){
 }
 
 function rPlano(pv,sub){
-  // Gather trackers for this PV/sub
   var trs=[];
   Object.keys(MASTER_DATA).forEach(function(code){
     var d=MASTER_DATA[code];
@@ -763,36 +762,39 @@ function rPlano(pv,sub){
   });
   if(trs.length===0)return '';
   
-  // Bounding box in UTM
   var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
   var LARGO_H=56,CORTO_H=28,W=2.5;
   trs.forEach(function(t){
     var h=(t.d.type.indexOf('largo')>=0?LARGO_H:CORTO_H)/2;
-    if(t.d.mx-W/2<minX)minX=t.d.mx-W/2;
-    if(t.d.mx+W/2>maxX)maxX=t.d.mx+W/2;
+    if(t.d.mx-W<minX)minX=t.d.mx-W;
+    if(t.d.mx+W>maxX)maxX=t.d.mx+W;
     if(t.d.my-h<minY)minY=t.d.my-h;
     if(t.d.my+h>maxY)maxY=t.d.my+h;
   });
   
-  var pad=15; // meters padding
+  var pad=15;
   minX-=pad;maxX+=pad;minY-=pad;maxY+=pad;
   var spanX=maxX-minX,spanY=maxY-minY;
   
-  // Canvas size
-  var cW=Math.min(window.innerWidth-32,800);
-  var scale=cW/spanX;
-  var cH=Math.round(spanY*scale);
-  if(cH>cW*1.8){scale=cW*1.8/spanY;cH=Math.round(spanY*scale);cW=Math.round(spanX*scale)}
-  if(cH<200)cH=200;
+  // CSS size (what user sees)
+  var cssW=Math.min(window.innerWidth-32,800);
+  var scale=cssW/spanX;
+  var cssH=Math.round(spanY*scale);
+  if(cssH>cssW*2){scale=cssW*2/spanY;cssH=Math.round(spanY*scale);cssW=Math.round(spanX*scale)}
+  if(cssH<200)cssH=200;
   
-  // Store for interaction
+  // Canvas pixel size (for sharpness)
+  var dpr=window.devicePixelRatio||1;
+  var canvasW=Math.round(cssW*dpr);
+  var canvasH=Math.round(cssH*dpr);
+  
   window._planoTrs=trs;
   window._planoMinX=minX;window._planoMaxY=maxY;
-  window._planoScale=scale;window._planoCW=cW;window._planoCH=cH;
+  window._planoScale=scale*dpr;window._planoCssW=cssW;window._planoCssH=cssH;
+  window._planoDpr=dpr;
   
-  var h='<div style="margin-bottom:8px">';
-  h+='<canvas id="planoCanvas" width="'+cW+'" height="'+cH+'" style="width:100%;border-radius:10px;background:#1a1f2e;border:1px solid var(--bd);touch-action:manipulation"></canvas>';
-  h+='<div id="planoTip" style="display:none;position:absolute;background:var(--sf);border:1px solid var(--ac);border-radius:8px;padding:8px 12px;font-size:12px;z-index:50;pointer-events:none"></div>';
+  var h='<div style="margin-bottom:8px;position:relative">';
+  h+='<canvas id="planoCanvas" width="'+canvasW+'" height="'+canvasH+'" style="width:'+cssW+'px;height:'+cssH+'px;border-radius:10px;background:#1a1f2e;border:1px solid var(--bd);touch-action:manipulation;display:block"></canvas>';
   h+='<div id="planoDbg" style="font-size:10px;color:var(--td);text-align:center;margin-top:4px">Cargando datos...</div>';
   h+='</div>';
   return h;
@@ -804,27 +806,24 @@ function drawPlano(){
   var ctx=cv.getContext('2d');
   var trs=window._planoTrs;
   var minX=window._planoMinX,maxY=window._planoMaxY,scale=window._planoScale;
+  var dpr=window._planoDpr||1;
   var LARGO_H=56,CORTO_H=28,W=2.5;
   
   ctx.clearRect(0,0,cv.width,cv.height);
-  
-  // Store rects for hit testing
   window._planoRects=[];
   
   trs.forEach(function(t){
     var d=t.d,code=t.code;
     var isLargo=d.type.indexOf('largo')>=0;
     var rectH=(isLargo?LARGO_H:CORTO_H)*scale;
-    var rectW=Math.max(W*scale,8);
+    var rectW=Math.max(W*scale,8*dpr);
     var cx=(d.mx-minX)*scale;
     var cy=(maxY-d.my)*scale;
     var rx=cx-rectW/2, ry=cy-rectH/2;
     
-    // Color based on cimentaciones status
     var td=APP.trackers[code];
-    var color='#3b82f6'; // blue: not reviewed
+    var color='#3b82f6';
     if(td){
-      // 1. Check local data first
       var ct=countF(code);
       if(ct.cimF>=ct.cimT&&ct.cimT>0){
         var st=calcStatus(code);
@@ -833,7 +832,6 @@ function drawPlano(){
       }else if(ct.cimF>0){
         color='#f59e0b';
       }
-      // 2. If still blue, check cloud data
       if(color==='#3b82f6'){
         var cs=td.cloudSt;
         if(cs){
@@ -846,26 +844,21 @@ function drawPlano(){
           if(hasSIMAL)color='#ef4444';
           else if(hasSI)color='#f59e0b';
         }
-        // Also check cloudPct
         var cp=String(td.cloudPct||'');
         if(cp==='SI'&&color==='#3b82f6')color='#22c55e';
-        else if(cp==='SI'&&color==='#f59e0b'){
-          // All status filled + checklist SI = complete, check for bad
-          if(!td.cloudSt||!hasSIMAL)color='#22c55e';
-        }
+        else if(cp==='SI'&&color==='#f59e0b'&&!hasSIMAL)color='#22c55e';
         else if(cp==='PDTE'&&color==='#3b82f6')color='#f59e0b';
       }
     }
     
     ctx.fillStyle=color;
     ctx.fillRect(rx,ry,rectW,rectH);
-    ctx.strokeStyle='rgba(255,255,255,0.3)';
-    ctx.lineWidth=0.5;
+    ctx.strokeStyle='rgba(255,255,255,0.25)';
+    ctx.lineWidth=0.5*dpr;
     ctx.strokeRect(rx,ry,rectW,rectH);
     
-    // Tracker number label
     var num=String(d.num);
-    var fontSize=Math.max(Math.min(rectW*1.8,rectH*0.12,11),6);
+    var fontSize=Math.max(Math.min(rectW*1.5,rectH*0.1,11*dpr),6*dpr);
     ctx.save();
     ctx.translate(cx,cy);
     ctx.rotate(-Math.PI/2);
@@ -876,21 +869,22 @@ function drawPlano(){
     ctx.fillText(num,0,0);
     ctx.restore();
     
-    window._planoRects.push({code:code,x:rx,y:ry,w:rectW,h:rectH,d:d});
+    // Store CSS-space rects for hit testing
+    window._planoRects.push({code:code,x:rx/dpr,y:ry/dpr,w:rectW/dpr,h:rectH/dpr,d:d});
   });
   
   // Legend
-  var lgY=cv.height-30;
+  var lgY=cv.height-25*dpr;
   var legends=[{c:'#22c55e',l:'OK'},{c:'#ef4444',l:'SI/MAL'},{c:'#f59e0b',l:'En curso'},{c:'#3b82f6',l:'Sin revisar'}];
-  ctx.font='bold 10px sans-serif';
-  var lgX=8;
+  ctx.font='bold '+(10*dpr)+'px sans-serif';
+  var lgX=8*dpr;
   legends.forEach(function(lg){
     ctx.fillStyle=lg.c;
-    ctx.fillRect(lgX,lgY,12,12);
+    ctx.fillRect(lgX,lgY,10*dpr,10*dpr);
     ctx.fillStyle='#ccc';
     ctx.textAlign='left';ctx.textBaseline='middle';
-    ctx.fillText(lg.l,lgX+16,lgY+6);
-    lgX+=ctx.measureText(lg.l).width+30;
+    ctx.fillText(lg.l,lgX+14*dpr,lgY+5*dpr);
+    lgX+=ctx.measureText(lg.l).width+25*dpr;
   });
 }
 
@@ -900,20 +894,15 @@ function initPlanoEvents(){
   
   function handleTap(clientX,clientY){
     var rect=cv.getBoundingClientRect();
-    var scaleX=cv.width/rect.width;
-    var scaleY=cv.height/rect.height;
-    var px=(clientX-rect.left)*scaleX;
-    var py=(clientY-rect.top)*scaleY;
+    var px=(clientX-rect.left);
+    var py=(clientY-rect.top);
     
-    // Find closest tracker within 20px
-    var best=null,bestDist=20;
+    var best=null,bestDist=25;
     (window._planoRects||[]).forEach(function(r){
       var cx=r.x+r.w/2, cy=r.y+r.h/2;
-      var dx=px-cx, dy=py-cy;
-      // Check if inside expanded rect first
       var ex=15;
       if(px>=r.x-ex&&px<=r.x+r.w+ex&&py>=r.y-ex&&py<=r.y+r.h+ex){
-        var dist=Math.sqrt(dx*dx+dy*dy);
+        var dist=Math.sqrt((px-cx)*(px-cx)+(py-cy)*(py-cy));
         if(dist<bestDist||!best){best=r;bestDist=dist}
       }
     });
@@ -921,10 +910,7 @@ function initPlanoEvents(){
     if(best){openTr(best.code)}
   }
   
-  cv.addEventListener('click',function(e){
-    handleTap(e.clientX,e.clientY);
-  });
-  
+  cv.addEventListener('click',function(e){handleTap(e.clientX,e.clientY)});
   cv.addEventListener('touchend',function(e){
     e.preventDefault();
     var t=e.changedTouches[0];
@@ -1099,7 +1085,7 @@ var CON_EQUIPOS=['Equipo 1','Equipo 2','Equipo 3','Equipo 4','Otro'];
 function rModeSel(a){
   if(!isAdmin()){V.mode='cal';V.screen='select';R();return}
   var h='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;gap:16px">';
-  h+='<img src="logo.png" style="width:140px;margin-bottom:8px" onerror="this.style.display=\'none\'">';
+  h+='<div style="font-size:11px;letter-spacing:3px;color:var(--tx3);text-transform:uppercase;margin-bottom:4px">XAMAI · X-ELIO</div>';
   h+='<h1 style="font-size:22px;color:var(--tx);margin-bottom:4px">ISFV ATALAYA</h1>';
   h+='<div style="font-size:12px;color:var(--td);margin-bottom:24px">'+CFG.tecnico+'</div>';
   
